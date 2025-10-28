@@ -1,6 +1,11 @@
 exports.requireAuth = (req, res, next) => {
+    console.log('Session User:', req.session.user);
     if (!req.session.user) {
-        return res.status(401).json({ message: 'Not authenticated' });
+        return res.status(401).json({
+            success: false,
+            message: 'Not authenticated. Please login first.',
+            redirectTo: '/login'
+        });
     }
     next();
 };

@@ -1,11 +1,17 @@
+require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const session = require('express-session');
 const cors = require('cors');
 const path = require('path');
 const multer = require('multer')
+const passport = require('passport');
+const MongoStore = require ('connect-mongo')
+require('./config/passport');
 
-require('dotenv').config();
+const app = express()
+const PORT = process.env.PORT || 3000;  
 
 const fs = require('fs');
 
@@ -15,9 +21,6 @@ if (!fs.existsSync(uploadDir)) {
     console.log('📁 uploads folder created automatically');
 }
 
-
-const app = express()
-const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
     res.send('Welcome to the Resume Optimization API')
@@ -36,6 +39,10 @@ app.use(session({
     secret: 'secret',
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGO_URI,
+        collectionName: 'sessions'
+    }),
     cookie: {
         secure: false, // true only if using HTTPS
         sameSite: 'lax'
@@ -43,15 +50,35 @@ app.use(session({
 
 }))
 
+app.use(passport.initialize());
+app.use(passport.session());
+
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
+
+const authRoute = require('./routes/auth');
+const subscriptionRoute = require('./routes/subscription');
+
+app.use('/api/subscription', subscriptionRoute);
+app.use('/', authRoute);
+
+
 
 // Routes
 const loginRoute = require('./routes/login');
 const signupRoute = require('./routes/signup');
+const logoutRoute = require('./routes/logout');
+const passwordRoute = require("./routes/password");
+
+
+const { requireAuth } = require('./middleware/authMiddleware');
+
 const uploadRoute = require('./routes/Upload');
 const analysisRoute = require('./routes/analysis');
 const feedbackRoute = require('./routes/feedback');
 const resultRoute = require('./routes/result');
+
 const adminRoute = require('./routes/admin');
 const userRoute = require('./routes/user');
 // const historyRoute = require('./routes/history')
@@ -59,11 +86,14 @@ const userRoute = require('./routes/user');
 app.use('/', adminRoute)
 app.use('/api', userRoute)
 app.use('/api', loginRoute)
+app.use('/api', passwordRoute)
 app.use('/api', signupRoute)
-app.use('/api', uploadRoute)
-app.use('/api', analysisRoute)
-app.use('/api', resultRoute)
-app.use('/api', feedbackRoute)
+app.use('/api', logoutRoute)
+
+app.use('/api', requireAuth, uploadRoute)
+app.use('/api', requireAuth,analysisRoute)
+app.use('/api', requireAuth,resultRoute)
+app.use('/api', requireAuth,feedbackRoute)
     // app.use('/api', historyRoute)
 
 //landingpage
@@ -87,10 +117,12 @@ app.use('/', contactRoute)
 
 
 //mongodb
-const dbURI = 'mongodb+srv://project:aj09126366384@cluster1.gqpv0pu.mongodb.net/resumeDB?retryWrites=true&w=majority&appName=Cluster1';
+const dbURI = process.env.MONGO_URI;
 
 
-mongoose.connect(dbURI)
+mongoose.connect(dbURI, {
+        serverSelectionTimeoutMS: 5000 // Timeout after 5s instead of 30s
+    })
     .then((result) => {
         console.log("connected")
         console.log('✅ Nakakonek sa MongoDB')
@@ -98,5 +130,13 @@ mongoose.connect(dbURI)
             console.log(`✅ Server running at http://localhost:${PORT}`);
         })
     })
-    .catch(err => console.log('❌ Error:', err))
-    .catch(err => console.log('❌ Error:', err))
+    .catch(err => {
+        console.log("DB connection error details:", {
+            name: err.name,
+            code: err.code,
+            message: err.message,
+            cause: err.cause
+        });
+        console.log("Please check your internet connection and MongoDB Atlas status");
+    })      
+  

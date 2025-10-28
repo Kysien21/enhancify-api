@@ -10,6 +10,15 @@ exports.uploadResume = async(req, res) => {
         console.log("📥 File received:", req.file);
         console.log("📝 Job Desc:", req.body.jobDescription);
 
+         // ✅ Storage size limit (5 MB max)
+        const MAX_SIZE = 1 * 1024 * 1024; // 1 MB
+        if (file.size > MAX_SIZE) {
+            return res.status(400).json({
+                success: false,
+                message: "File size exceeds 1 MB limit. Please upload a smaller resume (PDF or DOCX)."
+            });
+        }
+
 
         if (!file || !jobDescription) {
             return res.status(400).json({ success: false, message: "Missing file or job description." });
@@ -54,6 +63,29 @@ exports.uploadResume = async(req, res) => {
             return res.status(400).json({ success: false, message: "DOC format not supported. Use PDF or DOCX." });
         }
 
+        // ✅ Add text length limit (e.g., 10,000 characters)
+        if (resumeText.length > 10000) {
+            return res.status(400).json({
+                success: false,
+                message: "Resume text exceeds 10,000 character limit. Please upload a shorter resume."
+            });
+        }
+
+        // Check if its a valid resume
+        const resumeKeywords = ["experience", "education", "skills", "projects", "work history", "certifications"];
+        const texttocheck = resumeText.toLowerCase();
+        const isValidResume = resumeKeywords.some(keyword => texttocheck.includes(keyword));
+
+        if (resumeText.length < 100 || !isValidResume ) {
+            return res.status(400).json
+            ({
+                success: false,
+                message: "Uploaded file does not appear to be a valid resume. Please check and try again."
+            })
+        }
+
+
+        console.log*("user id sa session:", req.session.user._id);
         // Save to DB
         const saved = await ExtractedResume.create({
             userId: req.session.user._id,
@@ -66,7 +98,7 @@ exports.uploadResume = async(req, res) => {
         if (file.path) {
             fs.unlinkSync(file.path);
         }
-
+            
         // Send response
         res.status(200).json({
             success: true,

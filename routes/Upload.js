@@ -41,6 +41,7 @@ const upload = multer({
         /*,
            fileFilter: fileFilter */
 });
+
 router.post('/upload', upload.single('resume'), uploadcontroller.uploadResume)
 
 

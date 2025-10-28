@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const analysisController = require('../controllers/analysisController');
 const { requireAuth } = require('../middleware/authMiddleware')
+const { checkUsageLimit } = require('../middleware/subscriptionMiddleware');
 
 router.post('/analyze', requireAuth, analysisController.analyzeResume);
 module.exports = router;
@@ -27,3 +28,10 @@ router.get('/analysis-score', requireAuth, async(req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+// Update the analyze route
+router.post('/analyze', 
+    requireAuth, 
+    checkUsageLimit,  // ✨ Add this
+    analysisController.analyzeResume
+);

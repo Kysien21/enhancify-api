@@ -1,22 +1,18 @@
+
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const userSchema = new Schema({
     First_name: {
         type: String,
-        required: true,
         trim: true
     },
-
     Last_name: {
         type: String,
-        required: true,
         trim: true
     },
-
     Mobile_No: {
         type: String,
-        required: true,
         trim: true
     },
     Email_Address: {
@@ -27,17 +23,44 @@ const userSchema = new Schema({
         trim: true
     },
     Password: {
-        type: String,
-        required: true
+        type: String
     },
+    
+    // ✅ OAuth fields
+    googleId: String,
+    facebookId: String,
+    username: String,
+    profilePicture: String,
+    
     role: {
         type: String,
         enum: ['user', 'admin'],
         default: 'user'
-    }
-})
+    },
+    
+    // ✅ Subscription fields
+    subscription: {
+        isActive: { type: Boolean, default: false },
+        plan: { 
+            type: String, 
+            enum: ['free', 'basic', 'premium'], 
+            default: 'free' 
+        },
+        startDate: Date,
+        endDate: Date,
+        transactionId: String,
+        gcashReference: String
+    },
+    
+    // Forgot password fields
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
+    
+    // Activity tracking
+    lastActive: { type: Date, default: Date.now },
+    isActive: { type: Boolean, default: true },
+    
+    createdAt: { type: Date, default: Date.now }
+});
 
-//console.log("Saving new user...");
-
-
-module.exports = mongoose.model('User', userSchema)
+module.exports = mongoose.model('User', userSchema);
