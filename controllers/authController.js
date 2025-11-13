@@ -49,27 +49,33 @@ exports.signup = async(req, res) => {
     }
 }
 
+// Update authController.js login function
 exports.login = async(req, res) => {
     const { email, password } = req.body;
 
     try {
         const user = await User.findOne({ Email_Address: email });
-        console.log(email, password);
-
         if (!user) return res.status(400).json({ message: 'User Not Found' });
 
         const match = await bcrypt.compare(password, user.Password);
-
         if (!match) return res.status(400).json({ message: 'Invalid credentials' });
+
+        // ✅ Track login count
+        const isFirstLogin = user.loginCount === 0;
+        user.loginCount += 1;
+        user.lastLogin = new Date();
+        await user.save();
 
         req.session.user = {
             _id: user._id,
             role: user.role || 'user',
-            email: user.Email_Address
+            email: user.Email_Address,
+            firstName: user.First_name,
         }
 
         return res.status(200).json({
             message: 'Login successful',
+            isFirstLogin, // ✅ Send to frontend
             user: {
                 role: user.role,
                 email: user.Email_Address,

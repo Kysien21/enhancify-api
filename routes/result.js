@@ -3,15 +3,25 @@ const router = express.Router();
 const resultController = require('../controllers/resultController');
 const { requireAuth } = require("../middleware/authMiddleware");
 
-// 📄 Resume Result Routes
+// 📊 Get all results
 router.get('/results', requireAuth, resultController.getresults);
+
+// 📊 Get specific result by ID
+router.get('/result/:resultId', requireAuth, resultController.getResultById);
+
+// 📊 Get latest score
 router.get('/score', requireAuth, resultController.getscore);
 
-// 📥 Download + Delete route (PDF or DOCX)
-router.get('/download/:resumeId', requireAuth, resultController.downloadOptimized);
+// 📄 Get original resume
+router.get('/result/:resultId/original', requireAuth, resultController.getOriginalResume);
 
-// ✅ New routes for side-by-side viewing
-router.get('/original', requireAuth, resultController.getOriginalResume);
-router.get('/optimized', requireAuth, resultController.getOptimizedResume);
+// 📄 Get optimized resume
+router.get('/result/:resultId/optimized', requireAuth, resultController.getOptimizedResume);
+
+// 💾 Save to history
+router.post('/save-history', requireAuth, resultController.saveToHistory);
+
+// 📥 Download optimized resume
+router.get('/download/:resultId', requireAuth, resultController.downloadOptimized);
 
 module.exports = router;

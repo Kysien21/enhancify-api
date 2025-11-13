@@ -25,6 +25,17 @@ const userSchema = new Schema({
     Password: {
         type: String
     },
+
+     // ✅ Login tracking
+    loginCount: {
+        type: Number,
+        default: 0
+    },
+    firstLogin: {
+        type: Date,
+        default: Date.now
+    },
+    lastLogin: Date,
     
     // ✅ OAuth fields
     googleId: String,

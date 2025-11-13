@@ -37,9 +37,8 @@ const fileFilter = function(req, file, cb) {
 };
 
 const upload = multer({
-    storage: storage
-        /*,
-           fileFilter: fileFilter */
+    storage: storage,
+    fileFilter: fileFilter
 });
 
 router.post('/upload', upload.single('resume'), uploadcontroller.uploadResume)

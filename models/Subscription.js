@@ -26,17 +26,19 @@ const subscriptionSchema = new Schema({
         default: 'gcash'
     },
     
-    // GCash payment details
-    gcashReference: String,
+    // PayMongo/GCash payment details
+    paymentLink: String,           // ✅ Payment URL for user
+    paymentLinkId: String,         // ✅ PayMongo link ID
+    gcashReference: String,        // ✅ GCash transaction reference
     gcashTransactionId: String,
     gcashPhone: String,
     
-    // Payment proof
-    proofOfPayment: String, // URL or base64 image
+    // Payment proof (for manual verification)
+    proofOfPayment: String,
     
     status: {
         type: String,
-        enum: ['pending', 'approved', 'rejected', 'expired'],
+        enum: ['pending', 'approved', 'rejected', 'expired', 'cancelled'],
         default: 'pending'
     },
     

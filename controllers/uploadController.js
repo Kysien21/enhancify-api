@@ -6,12 +6,22 @@ const ExtractedResume = require('../models/ExtractedResume');
 exports.uploadResume = async(req, res) => {
     try {
         const file = req.file;
-        const jobDescription = req.body.jobDescription;
+        const { jobDescription, category } = req.body;
+        
         console.log("📥 File received:", req.file);
-        console.log("📝 Job Desc:", req.body.jobDescription);
+        console.log("📝 Job Desc:", jobDescription);
+        console.log("🏷️ Category:", category);
 
-         // ✅ Storage size limit (5 MB max)
-        const MAX_SIZE = 1 * 1024 * 1024; // 1 MB
+        // ✅ Validation
+        if (!file || !jobDescription || !category) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Missing file, job description, or category." 
+            });
+        }
+
+        // ✅ Storage size limit (1 MB max)
+        const MAX_SIZE = 1 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
             return res.status(400).json({
                 success: false,
@@ -19,31 +29,22 @@ exports.uploadResume = async(req, res) => {
             });
         }
 
-
-        if (!file || !jobDescription) {
-            return res.status(400).json({ success: false, message: "Missing file or job description." });
-        }
-
         let resumeText = "";
         let originalFilePath = null;
 
         // Handle PDF
         if (file.mimetype === "application/pdf") {
-            console.log('pdf imong file...');
-            const pdfData = await pdfParse(file.buffer); // ✅ buffer supported
+            console.log('📄 Processing PDF file...');
+            const pdfData = await pdfParse(file.buffer);
             resumeText = pdfData.text.toLowerCase();
-            console.log("Extracted Resume Text:\n", resumeText);
         }
-
-
         // Handle DOCX
         else if (file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-            console.log('docx imong file...');
+            console.log('📝 Processing DOCX file...');
             const result = await mammoth.extractRawText({ buffer: file.buffer });
             resumeText = result.value;
-            originalFilePath = null;
-            console.log("Extracted Resume Text:\n", resumeText);
 
+            // Remove duplicate lines
             const lines = resumeText
                 .split('\n')
                 .map(line => line.trim())
@@ -51,19 +52,16 @@ exports.uploadResume = async(req, res) => {
 
             const uniqueLines = [...new Set(lines)];
             resumeText = uniqueLines.join('\n');
-
-            originalFilePath = null;
-
-            console.log("Extracted Resume Text:\n", resumeText);
         }
-
         // Unsupported formats
         else if (file.mimetype === "application/msword") {
-            console.log('kailangan pdf ra og docx');
-            return res.status(400).json({ success: false, message: "DOC format not supported. Use PDF or DOCX." });
+            return res.status(400).json({ 
+                success: false, 
+                message: "DOC format not supported. Use PDF or DOCX." 
+            });
         }
 
-        // ✅ Add text length limit (e.g., 10,000 characters)
+        // ✅ Text length limit
         if (resumeText.length > 10000) {
             return res.status(400).json({
                 success: false,
@@ -71,26 +69,26 @@ exports.uploadResume = async(req, res) => {
             });
         }
 
-        // Check if its a valid resume
+        // ✅ Validate resume content
         const resumeKeywords = ["experience", "education", "skills", "projects", "work history", "certifications"];
-        const texttocheck = resumeText.toLowerCase();
-        const isValidResume = resumeKeywords.some(keyword => texttocheck.includes(keyword));
+        const textToCheck = resumeText.toLowerCase();
+        const isValidResume = resumeKeywords.some(keyword => textToCheck.includes(keyword));
 
-        if (resumeText.length < 100 || !isValidResume ) {
-            return res.status(400).json
-            ({
+        if (resumeText.length < 100 || !isValidResume) {
+            return res.status(400).json({
                 success: false,
                 message: "Uploaded file does not appear to be a valid resume. Please check and try again."
-            })
+            });
         }
 
-
-        console.log*("user id sa session:", req.session.user._id);
-        // Save to DB
+        console.log("👤 User ID from session:", req.session.user._id);
+        
+        // ✅ Save to DB with category
         const saved = await ExtractedResume.create({
             userId: req.session.user._id,
             resumeText,
             jobDescription,
+            category, // ✅ NEW FIELD
             originalFile: originalFilePath
         });
 
@@ -104,14 +102,16 @@ exports.uploadResume = async(req, res) => {
             success: true,
             message: "Upload Successful",
             resumeText,
-            resumeId: saved._id // ✅ this allows you to reference it later
+            resumeId: saved._id,
+            category: saved.category
         });
 
     } catch (error) {
-        console.error("Upload Error:", error);
+        console.error("❌ Upload Error:", error);
         res.status(500).json({
             success: false,
             message: "Server error during file upload.",
+            error: error.message
         });
     }
 };

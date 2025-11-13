@@ -14,6 +14,7 @@
     "dependencies": {
         "@anthropic-ai/sdk": "^0.56.0",
         "anthropic": "^0.0.0",
+        "axios": "^1.13.1",
         "bcrypt": "^6.0.0",
         "connect-mongo": "^5.1.0",
         "cors": "^2.8.5",
