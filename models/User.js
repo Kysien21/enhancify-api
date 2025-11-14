@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -26,7 +25,7 @@ const userSchema = new Schema({
         type: String
     },
 
-     // ✅ Login tracking
+    // ✅ Login tracking
     loginCount: {
         type: Number,
         default: 0
@@ -49,18 +48,28 @@ const userSchema = new Schema({
         default: 'user'
     },
     
-    // ✅ Subscription fields
+    // ✅ UPDATED Subscription fields
     subscription: {
-        isActive: { type: Boolean, default: false },
+        isActive: { 
+            type: Boolean, 
+            default: false 
+        },
         plan: { 
             type: String, 
-            enum: ['free', 'basic', 'premium'], 
-            default: 'free' 
+            enum: ['freemium', 'premium'], // ✅ Changed from 'free' to 'freemium'
+            default: 'freemium' 
         },
         startDate: Date,
         endDate: Date,
         transactionId: String,
-        gcashReference: String
+        gcashReference: String,
+        
+        // ✅ NEW: Daily usage tracking for freemium
+        lastUsedDate: Date,
+        usageCount: {
+            type: Number,
+            default: 0
+        }
     },
     
     // Forgot password fields

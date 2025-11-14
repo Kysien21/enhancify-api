@@ -9,7 +9,7 @@ const subscriptionSchema = new Schema({
     },
     plan: {
         type: String,
-        enum: ['basic', 'premium'],
+        enum: ['premium'], // ✅ Only premium needs payment
         required: true
     },
     amount: {
@@ -22,23 +22,19 @@ const subscriptionSchema = new Schema({
     },
     paymentMethod: {
         type: String,
-        enum: ['gcash', 'paymaya', 'manual'],
+        enum: ['gcash'],
         default: 'gcash'
     },
     
-    // PayMongo/GCash payment details
-    paymentLink: String,           // ✅ Payment URL for user
-    paymentLinkId: String,         // ✅ PayMongo link ID
-    gcashReference: String,        // ✅ GCash transaction reference
+    // ✅ PayMongo/GCash payment details
+    paymentLink: String,
+    paymentLinkId: String,
+    gcashReference: String,
     gcashTransactionId: String,
-    gcashPhone: String,
-    
-    // Payment proof (for manual verification)
-    proofOfPayment: String,
     
     status: {
         type: String,
-        enum: ['pending', 'approved', 'rejected', 'expired', 'cancelled'],
+        enum: ['pending', 'approved', 'expired', 'cancelled'],
         default: 'pending'
     },
     
@@ -46,7 +42,7 @@ const subscriptionSchema = new Schema({
     startDate: Date,
     endDate: Date,
     
-    // Admin verification
+    // Admin verification (optional for manual approval)
     verifiedBy: { 
         type: Schema.Types.ObjectId, 
         ref: 'User' 

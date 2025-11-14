@@ -5,7 +5,7 @@ const User = require('../models/User');
 
 /**
  * PayMongo Webhook Handler
- * Receives payment notifications from PayMongo
+ * Automatically activates premium subscription after GCash payment
  */
 router.post('/paymongo', express.json({ type: '*/*' }), async (req, res) => {
     try {
@@ -14,7 +14,7 @@ router.post('/paymongo', express.json({ type: '*/*' }), async (req, res) => {
 
         const event = req.body.data;
 
-        // Handle successful payment
+        // ✅ Handle successful GCash payment
         if (event.attributes.type === 'link.payment.paid') {
             const linkId = event.attributes.data.attributes.link_id;
             
@@ -31,7 +31,7 @@ router.post('/paymongo', express.json({ type: '*/*' }), async (req, res) => {
                 return res.sendStatus(200);
             }
 
-            // Calculate dates (30 days subscription)
+            // Calculate subscription period (30 days)
             const startDate = new Date();
             const endDate = new Date();
             endDate.setDate(endDate.getDate() + 30);
@@ -43,18 +43,20 @@ router.post('/paymongo', express.json({ type: '*/*' }), async (req, res) => {
             subscription.gcashReference = event.attributes.data.id;
             await subscription.save();
 
-            // Update user subscription
+            // ✅ Activate premium subscription for user
             await User.findByIdAndUpdate(subscription.userId, {
-                'subscription.plan': subscription.plan,
+                'subscription.plan': 'premium',
                 'subscription.isActive': true,
                 'subscription.startDate': startDate,
-                'subscription.endDate': endDate
+                'subscription.endDate': endDate,
+                'subscription.gcashReference': event.attributes.data.id
             });
 
-            console.log('✅ Subscription activated!');
+            console.log('✅ Premium subscription activated!');
             console.log('   User ID:', subscription.userId);
-            console.log('   Plan:', subscription.plan);
+            console.log('   Plan: Premium (Unlimited)');
             console.log('   Valid until:', endDate.toLocaleDateString());
+            console.log('   GCash Ref:', event.attributes.data.id);
         }
 
         // Always return 200 to acknowledge receipt
