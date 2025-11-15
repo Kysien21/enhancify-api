@@ -8,15 +8,15 @@
  * AI Model Configuration
  */
 const AI_CONFIG = {
-    model: 'claude-3-7-sonnet-20250219',
-    initialAnalysis: {
-        maxTokens: 2000,
-        temperature: 0.7
-    },
-    optimization: {
-        maxTokens: 3000,
-        temperature: 0.7
-    }
+  model: "claude-3-7-sonnet-20250219",
+  initialAnalysis: {
+    maxTokens: 5000,
+    temperature: 0.7,
+  },
+  optimization: {
+    maxTokens: 3000,
+    temperature: 0.7,
+  },
 };
 
 /**
@@ -61,7 +61,12 @@ Job Description:
  * Resume Optimization Prompt
  * Used for rewriting/enhancing the resume
  */
-const OPTIMIZATION_PROMPT = (resumeText, jobDescription, missingSkills, missingPhrases) => `
+const OPTIMIZATION_PROMPT = (
+  resumeText,
+  jobDescription,
+  missingSkills,
+  missingPhrases
+) => `
 You are a resume optimization assistant.
 
 Your task is to REWRITE the resume to better match the job description.
@@ -91,8 +96,8 @@ Original Resume:
 Job Description:
 """${jobDescription}"""
 
-Missing Skills to incorporate: ${missingSkills.join(', ')}
-Missing Phrases to incorporate: ${missingPhrases.join(', ')}
+Missing Skills to incorporate: ${missingSkills.join(", ")}
+Missing Phrases to incorporate: ${missingPhrases.join(", ")}
 `;
 
 /**
@@ -100,13 +105,14 @@ Missing Phrases to incorporate: ${missingPhrases.join(', ')}
  * Used when USE_MOCK=true or mock=true query parameter
  */
 const MOCK_INITIAL_ANALYSIS = {
-    overallScore: 85,
-    jobMatchScore: 78,
-    atsCompatibilityScore: 82,
-    readabilityScore: 92,
-    briefSummary: "Strong technical background with relevant experience. Resume could benefit from more specific metrics and inclusion of Docker and PostgreSQL skills to better match the job requirements.",
-    missingSkills: ["Docker", "PostgreSQL", "CI/CD"],
-    missingPhrases: ["agile methodology", "cross-functional teams"]
+  overallScore: 85,
+  jobMatchScore: 78,
+  atsCompatibilityScore: 82,
+  readabilityScore: 92,
+  briefSummary:
+    "Strong technical background with relevant experience. Resume could benefit from more specific metrics and inclusion of Docker and PostgreSQL skills to better match the job requirements.",
+  missingSkills: ["Docker", "PostgreSQL", "CI/CD"],
+  missingPhrases: ["agile methodology", "cross-functional teams"],
 };
 
 /**
@@ -146,65 +152,70 @@ State University | 2018`;
  * Helper function to get mock or real prompt
  */
 const getPrompt = {
-    initialAnalysis: (resumeText, jobDescription) => {
-        return INITIAL_ANALYSIS_PROMPT(resumeText, jobDescription);
-    },
-    
-    optimization: (resumeText, jobDescription, missingSkills, missingPhrases) => {
-        return OPTIMIZATION_PROMPT(resumeText, jobDescription, missingSkills, missingPhrases);
-    }
+  initialAnalysis: (resumeText, jobDescription) => {
+    return INITIAL_ANALYSIS_PROMPT(resumeText, jobDescription);
+  },
+
+  optimization: (resumeText, jobDescription, missingSkills, missingPhrases) => {
+    return OPTIMIZATION_PROMPT(
+      resumeText,
+      jobDescription,
+      missingSkills,
+      missingPhrases
+    );
+  },
 };
 
 /**
  * Helper function to get mock data
  */
 const getMockData = {
-    initialAnalysis: () => {
-        return JSON.stringify(MOCK_INITIAL_ANALYSIS);
-    },
-    
-    optimization: () => {
-        return MOCK_OPTIMIZED_RESUME;
-    }
+  initialAnalysis: () => {
+    return JSON.stringify(MOCK_INITIAL_ANALYSIS);
+  },
+
+  optimization: () => {
+    return MOCK_OPTIMIZED_RESUME;
+  },
 };
 
 /**
  * Check if mock mode should be enabled
  */
 const shouldUseMock = (req) => {
-    const isDev = process.env.NODE_ENV === 'development';
-    const queryMock = req.query.mock === 'true';
-    const envMock = process.env.USE_MOCK === 'true';
-    
-    return queryMock || envMock;
+  const isDev = process.env.NODE_ENV === "development";
+  const queryMock = req.query.mock === "true";
+  const envMock = process.env.USE_MOCK === "true";
+
+  return queryMock || envMock;
 };
 
 /**
  * Check if AI calls are allowed (prevent token usage in dev)
  */
 const isAICallAllowed = (useMock) => {
-    const isDev = process.env.NODE_ENV === 'development';
-    
-    if (!useMock && isDev) {
-        return {
-            allowed: false,
-            message: "⚠️ Token usage disabled in dev mode."
-        };
-    }
-    
-    return { allowed: true };
+  const isDev = process.env.NODE_ENV === "development";
+
+  if (!useMock && isDev) {
+    return {
+      allowed: false,
+      message: "⚠️ Token usage disabled in dev mode.",
+    };
+  }
+
+  return { allowed: true };
 };
 
 module.exports = {
-    AI_CONFIG,
-    getPrompt,
-    getMockData,
-    shouldUseMock,
-    isAICallAllowed,
-    
-    // Export raw prompts for reference/documentation
-    INITIAL_ANALYSIS_PROMPT,
-    OPTIMIZATION_PROMPT,
-    MOCK_INITIAL_ANALYSIS,
-    MOCK_OPTIMIZED_RESUME
+  AI_CONFIG,
+  getPrompt,
+  getMockData,
+  shouldUseMock,
+  isAICallAllowed,
+
+  // Export raw prompts for reference/documentation
+  INITIAL_ANALYSIS_PROMPT,
+  OPTIMIZATION_PROMPT,
+  MOCK_INITIAL_ANALYSIS,
+  MOCK_OPTIMIZED_RESUME,
 };
