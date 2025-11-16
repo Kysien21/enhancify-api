@@ -143,8 +143,7 @@ mongoose
     });
   })
   .catch((err) => {
-    j;
-    console.error("❌ DB connection error details:", {
+      console.error("❌ DB connection error details:", {
       name: err.name,
       code: err.code,
       message: err.message,

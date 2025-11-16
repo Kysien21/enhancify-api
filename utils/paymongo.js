@@ -1,93 +1,104 @@
 const axios = require('axios');
 
-const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
-
-if (!PAYMONGO_SECRET_KEY) {
-    console.error('❌ PAYMONGO_SECRET_KEY is not set in .env file!');
-}
-
-// Create axios instance with PayMongo config
-const paymongoAPI = axios.create({
-    baseURL: 'https://api.paymongo.com/v1',
-    headers: {
-        Authorization: `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}`,
-        'Content-Type': 'application/json'
-    }
-});
-
 /**
- * Create a GCash payment link
+ * Create PayMongo GCash payment link
  * @param {number} amount - Amount in PHP (e.g., 299)
  * @param {string} description - Payment description
- * @param {Object} metadata - Additional data (userId, plan, etc.)
- * @returns {Promise<Object>} - Payment link details
+ * @param {object} metadata - Additional data (userId, plan)
+ * @returns {object} { success, checkoutUrl, paymentLinkId, error }
  */
-exports.createPaymentLink = async (amount, description, metadata = {}) => {
+exports.createPaymentLink = async (amount, description, metadata) => {
     try {
-        const response = await paymongoAPI.post('/links', {
+        const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
+        
+        if (!PAYMONGO_SECRET_KEY) {
+            throw new Error('PAYMONGO_SECRET_KEY not configured in .env');
+        }
+
+        // PayMongo expects amount in centavos (multiply by 100)
+        const amountInCentavos = amount * 100;
+
+        const payload = {
             data: {
                 attributes: {
-                    amount: amount * 100, // Convert to centavos
+                    amount: amountInCentavos,
                     description: description,
-                    remarks: metadata.remarks || 'Subscription Payment',
-                    payment_method_allowed: ['gcash'],
-                    payment_method_types: ['gcash']
+                    remarks: `Enhancify Premium - User: ${metadata.userId}`,
+                    payment_method_types: ['gcash'], // GCash only
+                    payment_method_options: {
+                        gcash: {
+                            success_url: `${process.env.CLIENT_URL}/subscription/success`,
+                            cancel_url: `${process.env.CLIENT_URL}/subscription/cancel`
+                        }
+                    },
+                    metadata: {
+                        userId: metadata.userId,
+                        plan: metadata.plan
+                    }
                 }
             }
-        });
+        };
 
+        console.log('📤 Creating PayMongo payment link...');
+        console.log('Amount:', amount, 'PHP');
+
+        const response = await axios.post(
+            'https://api.paymongo.com/v1/links',
+            payload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${Buffer.from(PAYMONGO_SECRET_KEY).toString('base64')}`
+                }
+            }
+        );
+
+        const paymentData = response.data.data;
+        
         return {
             success: true,
-            checkoutUrl: response.data.data.attributes.checkout_url,
-            referenceNumber: response.data.data.id,
-            paymentLinkId: response.data.data.id
+            checkoutUrl: paymentData.attributes.checkout_url,
+            paymentLinkId: paymentData.id,
+            referenceNumber: paymentData.attributes.reference_number
         };
+
     } catch (error) {
-        console.error('❌ PayMongo Error:', error.response?.data || error.message);
+        console.error('❌ PayMongo API Error:', error.response?.data || error.message);
+        
         return {
             success: false,
-            error: error.response?.data?.errors || error.message
+            error: error.response?.data?.errors?.[0]?.detail || error.message
         };
     }
 };
 
 /**
- * Retrieve payment link details
- * @param {string} linkId - Payment link ID
- * @returns {Promise<Object>} - Payment details
+ * Retrieve payment link status
+ * @param {string} linkId - PayMongo link ID
  */
-exports.getPaymentLink = async (linkId) => {
+exports.getPaymentLinkStatus = async (linkId) => {
     try {
-        const response = await paymongoAPI.get(`/links/${linkId}`);
+        const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
+
+        const response = await axios.get(
+            `https://api.paymongo.com/v1/links/${linkId}`,
+            {
+                headers: {
+                    'Authorization': `Basic ${Buffer.from(PAYMONGO_SECRET_KEY).toString('base64')}`
+                }
+            }
+        );
+
         return {
             success: true,
             data: response.data.data
         };
+
     } catch (error) {
-        console.error('❌ Get Payment Error:', error.response?.data || error.message);
+        console.error('❌ Get payment link error:', error.message);
         return {
             success: false,
-            error: error.response?.data?.errors || error.message
+            error: error.message
         };
     }
 };
-
-/**
- * Check if payment is completed
- * @param {string} linkId - Payment link ID
- * @returns {Promise<boolean>} - True if paid
- */
-exports.isPaymentCompleted = async (linkId) => {
-    try {
-        const result = await exports.getPaymentLink(linkId);
-        if (result.success) {
-            return result.data.attributes.status === 'paid';
-        }
-        return false;
-    } catch (error) {
-        console.error('❌ Payment status check error:', error);
-        return false;
-    }
-};
-
-module.exports = exports;
