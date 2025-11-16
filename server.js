@@ -19,28 +19,46 @@ const resultRoute = require("./routes/user/resume-optimize-result-route");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ✅ Trust proxy (REQUIRED for Render/Heroku)
+app.set('trust proxy', 1);
+
 // ✅ Create uploads folder if missing
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
-// ✅ Middleware setup
+// ✅ CORS - Use your actual frontend URL
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:5173", // for local development
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"], // ✅ Specify allowed methods
-    allowedHeaders: ["Content-Type", "Authorization"], // ✅ Specify allowed headers
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Session + Mongo store
+// ✅ Session configuration for production
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "secret", // ✅ Use env variable
+    secret: process.env.SESSION_SECRET || "secret",
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
@@ -48,13 +66,15 @@ app.use(
       collectionName: "sessions",
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production", // ✅ Auto-detect based on environment
-      httpOnly: true, // ✅ Prevent XSS attacks
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // ✅ Allow cross-origin in production
-      maxAge: 1000 * 60 * 60 * 24 * 7, // ✅ 7 days
+      secure: true, // ✅ Always true for Render (uses HTTPS)
+      httpOnly: true,
+      sameSite: 'none', // ✅ Required for cross-origin cookies
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      domain: process.env.COOKIE_DOMAIN || undefined, // ✅ Add if needed
     },
   })
 );
+
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -62,46 +82,13 @@ app.use(passport.session());
 app.use(`${BASE_URL}auth`, authRoute);
 app.use(`${BASE_URL}user`, resultRoute);
 
-// ✅ Static folder
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // ✅ Middleware
 const { requireAuth } = require("./middleware/authMiddleware");
-
-// Get current logged-in user info
-// app.get("/api/me", requireAuth, (req, res) => {
-//   if (req.session.user) {
-//     res.json({
-//       name: req.session.user.firstName, // frontend expects data.name
-//       email: req.session.user.email,
-//     });
-//   } else {
-//     res.status(401).json({ message: "Not logged in" });
-//   }
-// });
-
-// // ✅ Auth & account-related
-// const webhookRoute = require('./routes/webhook');
-// const authRoute = require('./routes/auth');
-// const loginRoute = require('./routes/login');
-// const signupRoute = require('./routes/signup');
-// const logoutRoute = require('./routes/logout');
-// const passwordRoute = require('./routes/password');
-// const subscriptionRoute = require('./routes/subscription');
-
-// app.use('/webhook', webhookRoute);
-// app.use('/', authRoute);
-// app.use('/api/subscription', subscriptionRoute);
-// app.use('/api', loginRoute);
-// app.use('/api', signupRoute);
-// app.use('/api', logoutRoute);
-// app.use('/api', passwordRoute);
 
 // ✅ Core functionality routes
 const uploadRoute = require("./routes/Upload");
 const analysisRoute = require("./routes/analysis");
-// const resultRoute = require("./routes/result");
-const feedbackRoute = require("./routes/feedback"); // ✅ ADDED BACK
+const feedbackRoute = require("./routes/feedback");
 const statsRoute = require("./routes/stats");
 const categoriesRoute = require("./routes/categories");
 
@@ -109,31 +96,12 @@ app.use("/api", statsRoute);
 app.use("/", categoriesRoute);
 app.use("/api", requireAuth, uploadRoute);
 app.use("/api", requireAuth, analysisRoute);
-// app.use("/api", requireAuth, resultRoute);
-app.use("/api", requireAuth, feedbackRoute); // ✅ Secure & registered
+app.use("/api", requireAuth, feedbackRoute);
 
-// // ✅ Admin and user management
-// const adminRoute = require('./routes/admin');
-// const userRoute = require('./routes/user');
-
-// app.use('/', adminRoute);
-// app.use('/api', userRoute);
-
-// // ✅ Landing pages
-// const How = require('./routes/landingpages/howitworks');
-// const Price = require('./routes/landingpages/pricing');
-// const Contact = require('./routes/landingpages/contactUs');
-// app.use('/', How);
-// app.use('/', Price);
-// app.use('/', Contact);
-
-// // ✅ User interface pages
-// const homeRoute = require('./routes/userInterface/home');
-// const aboutRoute = require('./routes/userInterface/about');
-// const contactRoute = require('./routes/userInterface/contacts');
-// app.use('/', homeRoute);
-// app.use('/', aboutRoute);
-// app.use('/', contactRoute);
+// ✅ Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 // ✅ MongoDB connection
 const dbURI = process.env.MONGO_URI;
@@ -143,17 +111,17 @@ mongoose
   .then(() => {
     console.log("✅ Connected to MongoDB");
     app.listen(PORT, () => {
-      console.log(`✅ Server running at ${process.env.API_URL}:${PORT}`);
+      console.log(`✅ Server running on port ${PORT}`);
+      console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`✅ Client URL: ${process.env.CLIENT_URL}`);
     });
   })
   .catch((err) => {
-      console.error("❌ DB connection error details:", {
+    console.error("❌ DB connection error details:", {
       name: err.name,
       code: err.code,
       message: err.message,
       cause: err.cause,
     });
-    console.log(
-      "Please check your internet connection and MongoDB Atlas status"
-    );
+    console.log("Please check your internet connection and MongoDB Atlas status");
   });

@@ -55,10 +55,20 @@ exports.login = async(req, res) => {
 
     try {
         const user = await User.findOne({ Email_Address: email });
-        if (!user) return res.status(400).json({ message: 'User Not Found' });
+        if (!user) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'User Not Found' 
+            });
+        }
 
         const match = await bcrypt.compare(password, user.Password);
-        if (!match) return res.status(400).json({ message: 'Invalid credentials' });
+        if (!match) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Invalid credentials' 
+            });
+        }
 
         // ✅ Track login count
         const isFirstLogin = user.loginCount === 0;
@@ -66,24 +76,68 @@ exports.login = async(req, res) => {
         user.lastLogin = new Date();
         await user.save();
 
+        // ✅ Store user in session
         req.session.user = {
             _id: user._id,
             role: user.role || 'user',
             email: user.Email_Address,
             firstName: user.First_name,
-        }
+        };
 
-        return res.status(200).json({
-            message: 'Login successful',
-            isFirstLogin, // ✅ Send to frontend
-            user: {
-                role: user.role,
-                email: user.Email_Address,
-                firstName: user.First_name,
+        // ✅ Save session before sending response
+        req.session.save((err) => {
+            if (err) {
+                console.error('❌ Session save error:', err);
+                return res.status(500).json({ 
+                    success: false,
+                    message: 'Session creation failed' 
+                });
             }
+
+            console.log('✅ Session saved successfully:', req.session.id);
+            console.log('✅ User logged in:', user.Email_Address);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Login successful',
+                isFirstLogin,
+                user: {
+                    role: user.role,
+                    email: user.Email_Address,
+                    firstName: user.First_name,
+                }
+            });
         });
     } catch (error) {
-        res.status(500).json({ message: 'Login failed', error: error.message });
+        console.error('❌ Login error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Login failed', 
+            error: error.message 
+        });
+    }
+};
+
+// Verify session endpoint
+exports.verifySession = async (req, res) => {
+    try {
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ 
+                authenticated: false,
+                message: 'Not authenticated' 
+            });
+        }
+
+        res.status(200).json({
+            authenticated: true,
+            user: req.session.user
+        });
+    } catch (error) {
+        console.error('❌ Session verification error:', error);
+        res.status(500).json({ 
+            authenticated: false,
+            message: 'Verification failed' 
+        });
     }
 };
 
@@ -93,15 +147,29 @@ exports.logout = async(req, res) => {
         req.session.destroy((err) => {
             if (err) {
                 console.error("❌ Error destroying session:", err);
-                return res.status(500).json({ message: "Logout failed" });
+                return res.status(500).json({ 
+                    success: false,
+                    message: "Logout failed" 
+                });
             }
 
-            res.clearCookie("connect.sid"); // clear session cookie
-            return res.status(200).json({ message: "Logged out successfully" });
+            res.clearCookie("connect.sid", {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none'
+            });
+            
+            return res.status(200).json({ 
+                success: true,
+                message: "Logged out successfully" 
+            });
         });
     } catch (error) {
         console.error("❌ Logout error:", error);
-        res.status(500).json({ message: "Something went wrong" });
+        res.status(500).json({ 
+            success: false,
+            message: "Something went wrong" 
+        });
     }
 };
 
