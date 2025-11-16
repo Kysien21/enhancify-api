@@ -30,6 +30,8 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"], // ✅ Specify allowed methods
+    allowedHeaders: ["Content-Type", "Authorization"], // ✅ Specify allowed headers
   })
 );
 app.use(express.json());
@@ -38,7 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ Session + Mongo store
 app.use(
   session({
-    secret: "secret",
+    secret: process.env.SESSION_SECRET || "secret", // ✅ Use env variable
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
@@ -46,8 +48,10 @@ app.use(
       collectionName: "sessions",
     }),
     cookie: {
-      secure: false,
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production", // ✅ Auto-detect based on environment
+      httpOnly: true, // ✅ Prevent XSS attacks
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // ✅ Allow cross-origin in production
+      maxAge: 1000 * 60 * 60 * 24 * 7, // ✅ 7 days
     },
   })
 );
