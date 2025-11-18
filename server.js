@@ -12,15 +12,17 @@ const MongoStore = require("connect-mongo");
 require("./config/passport");
 const BASE_URL = "/api/v1/";
 
+
 //Import Routes
 const authRoute = require("./routes/auth/auth-route");
 const resultRoute = require("./routes/user/resume-optimize-result-route");
+const adminRoute = require("./routes/admin");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ✅ Trust proxy (REQUIRED for Render/Heroku)
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
 // ✅ Create uploads folder if missing
 const uploadDir = path.join(__dirname, "uploads");
@@ -34,19 +36,20 @@ const allowedOrigins = [
   "http://localhost:5173", // for local development
 ].filter(Boolean);
 
+// ⚠️ CORS MUST come BEFORE session middleware
 app.use(
   cors({
     origin: function (origin, callback) {
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
-      
+
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true,
+    credentials: true, // ✅ CRITICAL: Allows cookies to be sent
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -55,7 +58,9 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Session configuration for production
+// ✅ Session configuration - ADJUSTED for your environment
+const isProduction = process.env.NODE_ENV === "production";
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "secret",
@@ -66,11 +71,11 @@ app.use(
       collectionName: "sessions",
     }),
     cookie: {
-      secure: true, // ✅ Always true for Render (uses HTTPS)
+      // secure: isProduction, // ✅ true in production (HTTPS), false in development
+      secure: false, 
       httpOnly: true,
-      sameSite: 'none', // ✅ Required for cross-origin cookies
+      sameSite: isProduction ? "none" : "lax", // ✅ 'none' for cross-origin in production, 'lax' for localhost
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-      domain: process.env.COOKIE_DOMAIN || undefined, // ✅ Add if needed
     },
   })
 );
@@ -78,9 +83,16 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// ✅ Debug middleware for admin routes (after app is defined)
+app.use("/api/v1/admin", (req, res, next) => {
+  console.log("📍 Admin middleware session:", req.session);
+  next();
+});
+
 // ✅ Routes setup
 app.use(`${BASE_URL}auth`, authRoute);
 app.use(`${BASE_URL}user`, resultRoute);
+app.use(`${BASE_URL}admin`, adminRoute);
 
 // ✅ Middleware
 const { requireAuth } = require("./middleware/authMiddleware");
@@ -99,8 +111,8 @@ app.use("/api", requireAuth, analysisRoute);
 app.use("/api", requireAuth, feedbackRoute);
 
 // ✅ Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
 // ✅ MongoDB connection
@@ -112,8 +124,10 @@ mongoose
     console.log("✅ Connected to MongoDB");
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
-      console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`✅ Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`✅ Client URL: ${process.env.CLIENT_URL}`);
+      console.log(`✅ Cookie Secure: ${isProduction}`);
+      console.log(`✅ Cookie SameSite: ${isProduction ? "none" : "lax"}`);
     });
   })
   .catch((err) => {
@@ -123,5 +137,7 @@ mongoose
       message: err.message,
       cause: err.cause,
     });
-    console.log("Please check your internet connection and MongoDB Atlas status");
+    console.log(
+      "Please check your internet connection and MongoDB Atlas status"
+    );
   });

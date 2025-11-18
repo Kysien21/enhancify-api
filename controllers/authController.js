@@ -95,15 +95,16 @@ exports.login = async(req, res) => {
             }
 
             console.log('✅ Session saved successfully:', req.session.id);
-            console.log('✅ User logged in:', user.Email_Address);
-
+            console.log('✅ User logged in:', user.Email_Address, 'Role:', user.role);
+            
             return res.status(200).json({
                 success: true,
                 message: 'Login successful',
                 isFirstLogin,
                 user: {
-                    role: user.role,
+                    id: user._id,
                     email: user.Email_Address,
+                    role: user.role || 'user',
                     firstName: user.First_name,
                 }
             });
