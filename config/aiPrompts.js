@@ -8,7 +8,7 @@
  * AI Model Configuration
  */
 const AI_CONFIG = {
-  model: "claude-3-7-sonnet-20250219",
+  model: "claude-sonnet-4-5-20250929",
   initialAnalysis: {
     maxTokens: 5000,
     temperature: 0.7,

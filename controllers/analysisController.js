@@ -61,7 +61,6 @@ exports.analyzeResumeInitial = async (req, res) => {
     // const prompt = getPrompt.initialAnalysis(resumeText, jobDescription);
     const prompt = `
           <RESUME_TEXT_VERSION>
-
           ${resumeText}
           </RESUME_TEXT_VERSION>
 
@@ -85,7 +84,7 @@ CRITICAL RULES:
 - If information is unclear or incomplete, preserve it as-is rather than inventing details
 - Focus on: improving formatting, enhancing keyword placement, optimizing section headers, ensuring ATS-friendly structure, and (if job description provided) strategic emphasis of relevant qualifications
 
-Your optimization should make the existing content more ATS-friendly without adding ANY new substantive information.
+Your optimization should make the scanned content more ATS-friendly without adding ANY new substantive information.
 
 CRITICAL INSTRUCTIONS:
 1. Return ONLY valid JSON - no explanations, no markdown, no preamble, no additional text
@@ -110,7 +109,6 @@ OPTIMIZATION GUIDELINES:
 - Fix grammatical issues and incomplete sentences
 - Calculate realistic ATS scores based on keyword density, formatting quality, content depth, completeness, and (if applicable) alignment with job requirements
 
-Return ONLY the JSON object with no other text.
 
           Your response must be a valid JSON object with this exact structure:
 
@@ -195,8 +193,6 @@ Return ONLY the JSON object with no other text.
 
     `;
 
-
-
     // const prompt = `
     // <RESUME_TEXT_VERSION>
     // ${resumeText}
@@ -204,7 +200,7 @@ Return ONLY the JSON object with no other text.
     // Please optimize the text version in this resume for ATS systems. Enhance keywords, improve formatting, and provide structured JSON output with original and enhanced versions.
     // `;
 
-    let resultText;
+    // let resultText;
 
     // if (USE_MOCK) {
     //     // ✅ Get mock data from config file
@@ -253,19 +249,42 @@ Return ONLY the JSON object with no other text.
         },
       ],
     });
-    resultText = response.content[0].text;
 
-    const parsedResult = JSON.parse(resultText);
+    // ✅ Sanitize the response
+    const resultText = response.content[0].text; // ✅ This is fine now
 
+    const sanitize = resultText
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .trim();
+
+    // console.log("RESULT TEXT: ", resultText);
+    // console.log("SANITIZED TEXT: ", sanitize);
+
+    // ✅ Parse once and use everywhere
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(sanitize);
+      console.log("✅ Successfully parsed JSON");
+    } catch (error) {
+      console.error("❌ JSON Parse Error:", error.message);
+      return res.status(500).json({
+        message: "Failed to parse AI response",
+        error: error.message,
+      });
+    }
+
+    // ✅ Save to database
     await ResumeOptimizeResult.create({
       ...parsedResult,
       userId: req.session.user._id,
     });
 
+    // ✅ Send response to client
     return res.status(200).json({
       success: true,
       message: "✅ Resume analyzed successfully",
-      analysis: JSON.parse(resultText),
+      analysis: parsedResult,
     });
 
     // if (response.usage) {
