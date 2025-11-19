@@ -189,8 +189,6 @@ OPTIMIZATION GUIDELINES:
               ]
             }
           }
-
-
     `;
 
     // const prompt = `

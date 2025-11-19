@@ -12,7 +12,6 @@ const MongoStore = require("connect-mongo");
 require("./config/passport");
 const BASE_URL = "/api/v1/";
 
-
 //Import Routes
 const authRoute = require("./routes/auth/auth-route");
 const resultRoute = require("./routes/user/resume-optimize-result-route");
@@ -30,6 +29,9 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
+// ✅ Determine environment
+const isProduction = process.env.NODE_ENV === "production";
+
 // ✅ CORS - Use your actual frontend URL
 const allowedOrigins = [
   process.env.CLIENT_URL,
@@ -46,6 +48,7 @@ app.use(
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
+        console.log("❌ CORS blocked origin:", origin);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -58,9 +61,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Session configuration - ADJUSTED for your environment
-const isProduction = process.env.NODE_ENV === "production";
-
+// ✅ Session configuration - FIXED
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "secret",
@@ -71,10 +72,9 @@ app.use(
       collectionName: "sessions",
     }),
     cookie: {
-      // secure: isProduction, // ✅ true in production (HTTPS), false in development
-      secure: false, 
+      secure: isProduction, // ✅ FIXED: true in production, false in development
       httpOnly: true,
-      sameSite: isProduction ? "none" : "lax", // ✅ 'none' for cross-origin in production, 'lax' for localhost
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     },
   })
@@ -83,9 +83,10 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ✅ Debug middleware for admin routes (after app is defined)
-app.use("/api/v1/admin", (req, res, next) => {
-  console.log("📍 Admin middleware session:", req.session);
+// ✅ Debug middleware - Log all sessions
+app.use((req, res, next) => {
+  console.log("🔍 Session ID:", req.sessionID);
+  console.log("🔍 Session User:", req.session?.user);
   next();
 });
 

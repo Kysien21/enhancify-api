@@ -3,9 +3,28 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
 const verifySession = (req, res, next) => {
+  // ✅ DEBUG: Log everything
+  console.log("🔍 verifySession called");
+  console.log("Session ID:", req.sessionID);
+  console.log("Session object:", req.session);
+  console.log("Session user:", req.session?.user);
+  console.log("Cookies received:", req.headers.cookie);
+  
+  // ✅ Add check if session exists
+  if (!req.session || !req.session.user) {
+    console.log("❌ No session or user found - returning 401");
+    return res.status(401).json({ 
+      authenticated: false,
+      message: "Not authenticated" 
+    });
+  }
+
+  console.log("✅ Session valid, returning user data");
   res.status(200).json({
+    authenticated: true,
     name: req.session.user.firstName,
     email: req.session.user.email,
+    role: req.session.user.role,
   });
 };
 
@@ -17,7 +36,13 @@ const signout = (req, res) => {
         return res.status(500).json({ message: "Logout failed" });
       }
 
-      res.clearCookie("connect.sid"); // clear session cookie
+      // ✅ Clear cookie with correct settings
+      res.clearCookie("connect.sid", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      });
+      
       return res.status(200).json({ message: "Logged out successfully" });
     });
   } catch (error) {
@@ -29,12 +54,26 @@ const signout = (req, res) => {
 const signin = async (req, res) => {
   const { email, password } = req.body;
 
+  console.log("🔐 Login attempt for:", email);
+
   try {
     const user = await User.findOne({ Email_Address: email });
-    if (!user) return res.status(400).json({ message: "User Not Found" });
+    if (!user) {
+      console.log("❌ User not found:", email);
+      return res.status(400).json({ 
+        success: false,
+        message: "User Not Found" 
+      });
+    }
 
     const match = await bcrypt.compare(password, user.Password);
-    if (!match) return res.status(400).json({ message: "Invalid credentials" });
+    if (!match) {
+      console.log("❌ Invalid password for:", email);
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid credentials" 
+      });
+    }
 
     // ✅ Track login count
     const isFirstLogin = user.loginCount === 0;
@@ -42,6 +81,9 @@ const signin = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
+    console.log("✅ User authenticated, creating session for:", email);
+
+    // ✅ Store user in session
     req.session.user = {
       _id: user._id,
       role: user.role || "user",
@@ -49,18 +91,41 @@ const signin = async (req, res) => {
       firstName: user.First_name,
     };
 
-    return res.status(200).json({
-      message: "Login successful",
-      isFirstLogin, // ✅ Send to frontend
-      user: {
-        role: user.role,
-        email: user.Email_Address,
-        firstName: user.First_name,
-      },
+    console.log("📝 Session user set:", req.session.user);
+
+    // ✅ CRITICAL: Save session BEFORE sending response
+    req.session.save((err) => {
+      if (err) {
+        console.error("❌ Session save error:", err);
+        return res.status(500).json({ 
+          success: false,
+          message: "Session creation failed" 
+        });
+      }
+
+      console.log("✅ Session saved successfully!");
+      console.log("Session ID:", req.sessionID);
+      console.log("Session data:", req.session);
+      
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        isFirstLogin,
+        user: {
+          id: user._id,
+          email: user.Email_Address,
+          role: user.role || "user",
+          firstName: user.First_name,
+        },
+      });
     });
   } catch (error) {
     console.error("❌ Login error:", error);
-    res.status(500).json({ message: "Login failed", error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: "Login failed", 
+      error: error.message 
+    });
   }
 };
 
@@ -74,7 +139,7 @@ const signup = async (req, res) => {
     Confirm_Password,
     agreeToTerms,
   } = req.body;
-  //sign up
+
   if (
     !First_name ||
     !Last_name ||
@@ -87,23 +152,21 @@ const signup = async (req, res) => {
       .status(400)
       .json({ message: "All fields are required and terms must be accepted" });
   }
-  // kailangan pareha ang password og confirm password
+
   if (Password !== Confirm_Password) {
     return res.status(400).json({ message: "Passwords do not match" });
   }
 
   try {
-    // Check if user already exists
     const existingUser = await User.findOne({ Email_Address });
     if (existingUser) {
       return res
         .status(400)
         .json({ message: "Account already exists with this email" });
     }
-    //hash the password
+
     const hashedPassword = await bcrypt.hash(Password, 10);
-    console.log(First_name);
-    //bag o na user dri
+    
     const user = new User({
       First_name,
       Last_name,
