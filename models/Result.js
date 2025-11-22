@@ -1,4 +1,3 @@
-// models/Result.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -7,11 +6,11 @@ const resultSchema = new Schema({
     resumeText: { type: String, required: true },
     optimizedResume: { type: String, required: false },
     jobDescription: { type: String, required: true },
-    category: { type: String, required: true },
+    // ✅ REMOVED: category field
     
     // Scoring fields
     overallScore: { type: Number, required: true },
-    jobMatchScore: { type: Number, required: false }, // ✅ NEW
+    jobMatchScore: { type: Number, required: false },
     sectionScores: {
         RelevanceToJob: Number,
         Experience: Number,
@@ -24,10 +23,10 @@ const resultSchema = new Schema({
     missingPhrases: [String],
     
     // Optimization status
-    isOptimized: { type: Boolean, default: false }, // ✅ NEW
+    isOptimized: { type: Boolean, default: false },
     
     // History tracking
-    savedToHistory: { type: Boolean, default: false }, // ✅ NEW
+    savedToHistory: { type: Boolean, default: false },
     
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }

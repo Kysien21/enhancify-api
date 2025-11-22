@@ -7,26 +7,15 @@ const historySchema = new Schema({
     action: { type: String, default: 'resume_optimization' },
     description: String,
     
-    // ❌ Remove: resumeText (original)
-    optimizedResume: { type: String, required: true }, // ✅ Only optimized
+    optimizedResume: { type: String, required: true },
     jobDescription: String,
     
     // Scores
     overallScore: Number,
     jobMatchScore: Number,
     
-    // Metadata
-    category: String,
+    // ✅ REMOVED: category field
     timestamp: { type: Date, default: Date.now }
 });
-
-// const historySchema = new mongoose.Schema({
-//   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-//   resumeText: String,
-//   jobDescription: String,
-//   overallScore: Number,
-//   feedback: String,
-//   createdAt: { type: Date, default: Date.now }
-// });
 
 module.exports = mongoose.model('History', historySchema);

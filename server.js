@@ -52,7 +52,7 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true, // ✅ CRITICAL: Allows cookies to be sent
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -61,7 +61,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Session configuration - FIXED
+// ✅ Session configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "secret",
@@ -72,7 +72,7 @@ app.use(
       collectionName: "sessions",
     }),
     cookie: {
-      secure: isProduction, // ✅ FIXED: true in production, false in development
+      secure: isProduction,
       httpOnly: true,
       sameSite: isProduction ? "none" : "lax",
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
@@ -103,10 +103,10 @@ const uploadRoute = require("./routes/Upload");
 const analysisRoute = require("./routes/analysis");
 const feedbackRoute = require("./routes/feedback");
 const statsRoute = require("./routes/stats");
-const categoriesRoute = require("./routes/categories");
+// ✅ REMOVED: const categoriesRoute = require("./routes/categories");
 
 app.use("/api", statsRoute);
-app.use("/", categoriesRoute);
+// ✅ REMOVED: app.use("/", categoriesRoute);
 app.use("/api", requireAuth, uploadRoute);
 app.use("/api", requireAuth, analysisRoute);
 app.use("/api", requireAuth, feedbackRoute);

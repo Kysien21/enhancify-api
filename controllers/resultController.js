@@ -1,4 +1,3 @@
-// controllers/resultController.js
 const fs = require('fs');
 const Result = require('../models/Result');
 const History = require('../models/History');
@@ -134,18 +133,17 @@ exports.saveToHistory = async(req, res) => {
             return res.status(400).json({ message: "Already saved to history" });
         }
 
-        // ✅ Create history entry with ONLY optimized version
+        // ✅ Create history entry with ONLY optimized version (no category)
         await History.create({
             userId,
             action: 'resume_optimization',
-            description: `Optimized resume for ${result.category} - Score: ${result.overallScore}`,
+            description: `Optimized resume - Score: ${result.overallScore}`,
             resultId: result._id,
-            // ❌ NOT including: resumeText (original)
-            optimizedResume: result.optimizedResume, // ✅ Only optimized
+            optimizedResume: result.optimizedResume,
             jobDescription: result.jobDescription,
             overallScore: result.overallScore,
             jobMatchScore: result.jobMatchScore,
-            category: result.category,
+            // ✅ REMOVED: category field
             timestamp: new Date()
         });
 
