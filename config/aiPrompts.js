@@ -120,7 +120,6 @@ Your response must be a valid JSON object with this exact structure:
         "degree": "string - full degree title",
         "institution": "string",
         "period": "string",
-        "relevant": "string - relevant coursework (optional)"
       }
     ],
     "skills": {

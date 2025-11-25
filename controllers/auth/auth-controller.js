@@ -45,13 +45,11 @@ const signout = (req, res) => {
         });
       }
 
-      // Clear the session cookie
       res.clearCookie("connect.sid", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
-      
       console.log("✅ User logged out successfully");
       
       return res.status(200).json({ 
