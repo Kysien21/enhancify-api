@@ -74,10 +74,7 @@ router.post("/change-password",
   adminStatsController.changeAdminPassword
 );
 
-router.post("/create-admin",
-  requireRole("admin"),
-  adminStatsController.createAdmin
-);
+// ✅ REMOVED: /create-admin route - Only one admin via script
 
 // ===================== MAIN DASHBOARD =====================
 router.get("/dashboard", requireRole("admin"), (req, res) => {

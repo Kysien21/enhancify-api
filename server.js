@@ -6,7 +6,6 @@ const session = require("express-session");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
-const multer = require("multer");
 const passport = require("passport");
 const MongoStore = require("connect-mongo");
 require("./config/passport");
@@ -102,14 +101,18 @@ const { requireAuth } = require("./middleware/authMiddleware");
 const uploadRoute = require("./routes/Upload");
 const analysisRoute = require("./routes/analysis");
 const feedbackRoute = require("./routes/feedback");
-const statsRoute = require("./routes/stats");
-// ✅ REMOVED: const categoriesRoute = require("./routes/categories");
+const historyRoute = require("./routes/history");
+const resultRoute2 = require("./routes/result");
+// ✅ REMOVED: subscription routes
+// ✅ REMOVED: webhook routes
+// ✅ REMOVED: categories route
+// ✅ REMOVED: stats route
 
-app.use("/api", statsRoute);
-// ✅ REMOVED: app.use("/", categoriesRoute);
 app.use("/api", requireAuth, uploadRoute);
 app.use("/api", requireAuth, analysisRoute);
 app.use("/api", requireAuth, feedbackRoute);
+app.use("/api", requireAuth, historyRoute);
+app.use("/api", requireAuth, resultRoute2);
 
 // ✅ Health check endpoint
 app.get("/health", (req, res) => {

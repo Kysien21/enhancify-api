@@ -48,29 +48,7 @@ const userSchema = new Schema({
     default: "user",
   },
 
-  // ✅ UPDATED Subscription fields
-  subscription: {
-    isActive: {
-      type: Boolean,
-      default: false,
-    },
-    plan: {
-      type: String,
-      enum: ["freemium", "premium"], // ✅ Changed from 'free' to 'freemium'
-      default: "freemium",
-    },
-    startDate: Date,
-    endDate: Date,
-    transactionId: String,
-    gcashReference: String,
-
-    // ✅ NEW: Daily usage tracking for freemium
-    lastUsedDate: Date,
-    usageCount: {
-      type: Number,
-      default: 0,
-    },
-  },
+  // ✅ REMOVED ALL SUBSCRIPTION FIELDS - No subscription system
 
   // Forgot password fields
   resetPasswordToken: String,
@@ -78,7 +56,7 @@ const userSchema = new Schema({
 
   // Activity tracking
   lastActive: { type: Date, default: Date.now },
-  isActive: { type: Boolean, default: true },
+  isActive: { type: Boolean, default: true }, // ✅ For blocking users
 
   createdAt: { type: Date, default: Date.now },
 });

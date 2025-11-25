@@ -1,22 +1,40 @@
 const User = require('../models/User');
+const ResumeOptimizeResult = require('../models/ResumeOptmizeResult');
 const bcrypt = require('bcrypt');
 
 // ===================== OVERVIEW / HOME =====================
 exports.getOverviewStats = async (req, res) => {
   try {
-    // Count only non-admin users
-    const totalUsers = await User.countDocuments({ role: { $ne: 'admin' }, isActive: true });
+    // Count only non-admin active users
+    const totalUsers = await User.countDocuments({ 
+      role: { $ne: 'admin' }, 
+      isActive: true 
+    });
     
-    // You'll need to create models for these or adjust based on your schema
-    // For now, returning placeholder values
-    const totalResumes = 0; // await Resume.countDocuments();
-    const averageMatchScore = 0; // Calculate from your results collection
+    // ✅ Count total optimized resumes (changed key to match frontend)
+    const totalResumes = await ResumeOptimizeResult.countDocuments();
+    
+    // ✅ Calculate average ATS score from enhanced resumes
+    const scoreStats = await ResumeOptimizeResult.aggregate([
+      {
+        $group: {
+          _id: null,
+          avgEnhancedScore: { $avg: '$atsScore.enhanced' }
+        }
+      }
+    ]);
+    
+    const averageMatchScore = scoreStats.length > 0 
+      ? Math.round(scoreStats[0].avgEnhancedScore) 
+      : 0;
+    
+    console.log('📊 Overview Stats:', { totalUsers, totalResumes, averageMatchScore });
     
     res.json({
       success: true,
       data: {
         totalUsers,
-        totalResumes,
+        totalResumes, // ✅ Changed from totalOptimizedResumes to match frontend
         averageMatchScore
       }
     });
@@ -32,24 +50,28 @@ exports.getOverviewStats = async (req, res) => {
 
 exports.getSystemActivityGraph = async (req, res) => {
   try {
-    // This should fetch monthly activity data
-    // For now, returning sample data for 12 months
-    const monthlyData = Array(12).fill(0);
+    // Get monthly activity data from ResumeOptimizeResult
+    const monthlyData = await ResumeOptimizeResult.aggregate([
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
     
-    // TODO: Implement actual query to count activities per month
-    // Example:
-    // const results = await Analysis.aggregate([
-    //   {
-    //     $group: {
-    //       _id: { $month: "$createdAt" },
-    //       count: { $sum: 1 }
-    //     }
-    //   }
-    // ]);
+    // Initialize array with 12 months
+    const result = Array(12).fill(0);
+    
+    // Fill in the actual data
+    monthlyData.forEach(item => {
+      result[item._id - 1] = item.count;
+    });
     
     res.json({
       success: true,
-      data: monthlyData
+      data: result
     });
   } catch (error) {
     console.error('Error fetching system activity graph:', error);
@@ -63,20 +85,27 @@ exports.getSystemActivityGraph = async (req, res) => {
 
 exports.getRecentAnalyses = async (req, res) => {
   try {
-    // TODO: Implement based on your Analysis model
-    // This is a placeholder structure
-    const recentAnalyses = [];
+    const recentAnalyses = await ResumeOptimizeResult.find()
+      .populate('userId', 'First_name Last_name Email_Address')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
     
-    // Example query (adjust based on your actual models):
-    // const recentAnalyses = await Analysis.find()
-    //   .populate('userId', 'First_name Last_name')
-    //   .sort({ createdAt: -1 })
-    //   .limit(10)
-    //   .lean();
+    // Format the data
+    const formatted = recentAnalyses.map(analysis => ({
+      _id: analysis._id,
+      userName: analysis.userId ? 
+        `${analysis.userId.First_name} ${analysis.userId.Last_name}` : 
+        'Unknown User',
+      userEmail: analysis.userId?.Email_Address || 'N/A',
+      originalScore: analysis.atsScore?.original || 0,
+      enhancedScore: analysis.atsScore?.enhanced || 0,
+      createdAt: analysis.createdAt
+    }));
     
     res.json({
       success: true,
-      data: recentAnalyses
+      data: formatted
     });
   } catch (error) {
     console.error('Error fetching recent analyses:', error);
@@ -91,9 +120,29 @@ exports.getRecentAnalyses = async (req, res) => {
 // ===================== REPORTS AND ANALYTICS =====================
 exports.getReportsAnalytics = async (req, res) => {
   try {
-    // Count only non-admin users
-    const totalAnalysis = 0; // await Analysis.countDocuments();
-    const avgImprovement = 0; // Calculate from your data
+    const totalAnalysis = await ResumeOptimizeResult.countDocuments();
+    
+    // Calculate average improvement
+    const improvementStats = await ResumeOptimizeResult.aggregate([
+      {
+        $project: {
+          improvement: { 
+            $subtract: ['$atsScore.enhanced', '$atsScore.original'] 
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          avgImprovement: { $avg: '$improvement' }
+        }
+      }
+    ]);
+    
+    const avgImprovement = improvementStats.length > 0 
+      ? Math.round(improvementStats[0].avgImprovement) 
+      : 0;
+    
     const activeUsers = await User.countDocuments({ 
       role: { $ne: 'admin' }, 
       isActive: true 
@@ -119,12 +168,24 @@ exports.getReportsAnalytics = async (req, res) => {
 
 exports.getSystemUsageOverTime = async (req, res) => {
   try {
-    // Return monthly usage data
-    const usageData = Array(12).fill(0);
+    const usageData = await ResumeOptimizeResult.aggregate([
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    
+    const result = Array(12).fill(0);
+    usageData.forEach(item => {
+      result[item._id - 1] = item.count;
+    });
     
     res.json({
       success: true,
-      data: usageData
+      data: result
     });
   } catch (error) {
     console.error('Error fetching system usage:', error);
@@ -138,10 +199,32 @@ exports.getSystemUsageOverTime = async (req, res) => {
 
 exports.getMonthlyStats = async (req, res) => {
   try {
-    // Implement monthly statistics
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+    
+    const stats = await ResumeOptimizeResult.aggregate([
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: [{ $month: "$createdAt" }, currentMonth] },
+              { $eq: [{ $year: "$createdAt" }, currentYear] }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          avgScore: { $avg: '$atsScore.enhanced' }
+        }
+      }
+    ]);
+    
     res.json({
       success: true,
-      data: {}
+      data: stats.length > 0 ? stats[0] : { count: 0, avgScore: 0 }
     });
   } catch (error) {
     console.error('Error fetching monthly stats:', error);
@@ -156,25 +239,32 @@ exports.getMonthlyStats = async (req, res) => {
 // ===================== USER MANAGEMENT =====================
 exports.getUsersList = async (req, res) => {
   try {
-    // Get all non-admin users
     const users = await User.find({ role: { $ne: 'admin' } })
       .select('-Password -resetPasswordToken -resetPasswordExpires')
       .sort({ createdAt: -1 })
       .lean();
     
-    // Format the data to match your frontend expectations
-    const formattedUsers = users.map(user => ({
-      _id: user._id,
-      username: `${user.First_name} ${user.Last_name}`,
-      email: user.Email_Address,
-      dateJoined: user.firstLogin || user.createdAt,
-      totalAnalysis: 0, // TODO: Count from Analysis collection
-      isActive: user.isActive
-    }));
+    // Get analysis count for each user
+    const usersWithAnalysis = await Promise.all(
+      users.map(async (user) => {
+        const analysisCount = await ResumeOptimizeResult.countDocuments({ 
+          userId: user._id 
+        });
+        
+        return {
+          _id: user._id,
+          username: `${user.First_name} ${user.Last_name}`,
+          email: user.Email_Address,
+          dateJoined: user.firstLogin || user.createdAt,
+          totalAnalysis: analysisCount,
+          isActive: user.isActive
+        };
+      })
+    );
     
     res.json({
       success: true,
-      data: formattedUsers
+      data: usersWithAnalysis
     });
   } catch (error) {
     console.error('Error fetching users list:', error);
@@ -234,11 +324,17 @@ exports.deleteUser = async (req, res) => {
       });
     }
     
+    // ✅ Permanently delete the user
     await User.findByIdAndDelete(userId);
+    
+    // ✅ Also delete all their resume optimization results
+    await ResumeOptimizeResult.deleteMany({ userId });
+    
+    console.log(`✅ User deleted: ${user.Email_Address}`);
     
     res.json({
       success: true,
-      message: 'User deleted successfully'
+      message: 'User and all associated data deleted successfully'
     });
   } catch (error) {
     console.error('Error deleting user:', error);
@@ -270,8 +366,11 @@ exports.toggleUserStatus = async (req, res) => {
       });
     }
     
+    // ✅ Toggle isActive status
     user.isActive = !user.isActive;
     await user.save();
+    
+    console.log(`✅ User ${user.isActive ? 'unblocked' : 'blocked'}: ${user.Email_Address}`);
     
     res.json({
       success: true,
@@ -346,63 +445,4 @@ exports.changeAdminPassword = async (req, res) => {
   }
 };
 
-exports.createAdmin = async (req, res) => {
-  try {
-    const { fullName, email, password } = req.body;
-    
-    if (!fullName || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required'
-      });
-    }
-    
-    if (password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 8 characters long'
-      });
-    }
-    
-    const existingUser = await User.findOne({ Email_Address: email });
-    
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already exists'
-      });
-    }
-    
-    const [firstName, ...lastNameParts] = fullName.split(' ');
-    const lastName = lastNameParts.join(' ') || firstName;
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const newAdmin = new User({
-      First_name: firstName,
-      Last_name: lastName,
-      Mobile_No: '00000000000',
-      Email_Address: email,
-      Password: hashedPassword,
-      role: 'admin',
-      subscription: {
-        isActive: true,
-        plan: 'premium'
-      }
-    });
-    
-    await newAdmin.save();
-    
-    res.json({
-      success: true,
-      message: 'Admin account created successfully'
-    });
-  } catch (error) {
-    console.error('Error creating admin:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create admin account',
-      error: error.message
-    });
-  }
-};
+// ✅ REMOVED: createAdmin function - only one admin exists via script

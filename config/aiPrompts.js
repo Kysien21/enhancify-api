@@ -1,7 +1,7 @@
 // ========================================
 // AI Configuration and Prompts
 // ========================================
-// This file contains all AI prompts, model configurations, and mock data
+// This file contains AI prompts and model configuration
 // for the resume optimization system.
 
 /**
@@ -13,209 +13,145 @@ const AI_CONFIG = {
     maxTokens: 5000,
     temperature: 0.7,
   },
-  optimization: {
-    maxTokens: 3000,
-    temperature: 0.7,
-  },
 };
 
 /**
- * Initial Analysis Prompt
- * Used for scoring the resume without optimization
+ * Resume Analysis and Optimization Prompt
+ * This is the ONLY prompt used in the system
+ * It analyzes the resume and creates an optimized version
  */
-const INITIAL_ANALYSIS_PROMPT = (resumeText, jobDescription) => `
-You are a resume analysis assistant.
+const RESUME_OPTIMIZATION_PROMPT = (resumeText, jobDescription) => `
+<RESUME_TEXT_VERSION>
+${resumeText}
+</RESUME_TEXT_VERSION>
 
-Analyze the user's resume based on the job description and provide ONLY scoring and feedback.
+<JOB_DESCRIPTION>
+${jobDescription}
+</JOB_DESCRIPTION>
 
-📌 DO NOT optimize or rewrite the resume yet.
+You are an expert ATS (Applicant Tracking System) resume optimizer. Your task is to analyze the provided resume text and create an enhanced, ATS-optimized version using ONLY the information explicitly present in the original text.
 
-🧾 RESPONSE FORMAT — STRICTLY RETURN JSON LIKE THIS:
+INPUT HANDLING:
+- If a job description is provided: Align the resume content to match the job requirements by emphasizing relevant skills, experiences, and keywords from the job posting
+- If no job description is provided: Perform general optimization to maximize ATS compatibility across various roles
+
+CRITICAL RULES:
+- Work ONLY with the text that has been scanned/extracted from the resume
+- DO NOT add any skills, experiences, certifications, or qualifications that are not already present in the original resume
+- DO NOT fill gaps or infer missing information
+- DO NOT suggest adding new content
+- ONLY reorganize, reformat, and optimize the existing content for ATS compatibility
+- When a job description is provided, prioritize and emphasize experiences/skills that match the job requirements, but never fabricate new ones
+- If information is unclear or incomplete, preserve it as-is rather than inventing details
+- Focus on: improving formatting, enhancing keyword placement, optimizing section headers, ensuring ATS-friendly structure, and (if job description provided) strategic emphasis of relevant qualifications
+
+Your optimization should make the scanned content more ATS-friendly without adding ANY new substantive information.
+
+CRITICAL INSTRUCTIONS:
+1. Return ONLY valid JSON - no explanations, no markdown, no preamble, no additional text
+2. Do not wrap the JSON in markdown code blocks
+3. Follow the exact structure specified below
+4. Enhance keywords, improve formatting, and expand content for better ATS compatibility
+
+OPTIMIZATION GUIDELINES:
+- Expand job titles for clarity (e.g., "Intern" → "Forestry Intern")
+- Expand acronyms in company names for ATS recognition
+- Transform basic bullet points into detailed accomplishment statements (2 bullets → 5+ detailed statements)
+- Use strong action verbs: Collaborated, Managed, Coordinated, Maintained, Supported, Developed, Implemented, Executed, Led, Optimized
+- Include quantifiable metrics where possible (e.g., "100% accuracy", "managed X items", "reduced time by Y%")
+- When job description is provided: Mirror relevant keywords and phrases from the posting in appropriate sections
+- When job description is provided: Reorder bullet points to highlight job-relevant achievements first
+- Add industry-specific keywords relevant to the field (or to the target job if description provided)
+- Reorganize skills into Technical and Soft Skills categories, prioritizing job-relevant skills when applicable
+- Expand skill lists from generic terms to specific competencies
+- Add relevant coursework to education entries
+- Format phone numbers with country codes
+- Streamline addresses for better readability
+- Fix grammatical issues and incomplete sentences
+- Calculate realistic ATS scores based on keyword density, formatting quality, content depth, completeness, and (if applicable) alignment with job requirements
+
+Your response must be a valid JSON object with this exact structure:
 
 {
-  "overallScore": <number 0-100>,
-  "jobMatchScore": <number 0-100>,
-  "atsCompatibilityScore": <number 0-100>,
-  "readabilityScore": <number 0-100>,
-  "briefSummary": "A 2-3 sentence analysis of the resume's strengths and areas for improvement",
-  "missingSkills": [<array of skills missing from resume>],
-  "missingPhrases": [<array of important phrases from job description>]
-}
-
-SCORING GUIDELINES:
-- overallScore: Overall quality and match (0-100)
-- jobMatchScore: How well the resume matches the job requirements (0-100)
-- atsCompatibilityScore: How well it will pass ATS systems (0-100)
-- readabilityScore: How easy it is to read and understand (0-100)
-
-Return ONLY valid JSON — no markdown, code blocks, or explanations.
-
-Original Resume:
-"""${resumeText}"""
-
-Job Description:
-"""${jobDescription}"""
-`;
-
-/**
- * Resume Optimization Prompt
- * Used for rewriting/enhancing the resume
- */
-const OPTIMIZATION_PROMPT = (
-  resumeText,
-  jobDescription,
-  missingSkills,
-  missingPhrases
-) => `
-You are a resume optimization assistant.
-
-Your task is to REWRITE the resume to better match the job description.
-
-⚠️ KEEP THESE FIELDS INTACT AND UNCHANGED:
-- Full Name
-- Email
-- Contact Number
-- LinkedIn (if present)
-- Location / Address
-
-✅ You are allowed to improve:
-- Professional Summary or Profile
-- Skills or Core Competencies
-- Work Experience (if present)
-- Education
-- Grammar, consistency, layout, formatting
-- Add missing keywords and skills based on the job description
-
-🧾 RETURN ONLY THE OPTIMIZED RESUME TEXT:
-Do not add any JSON wrapper, markdown, or explanations.
-Return ONLY the optimized resume content as plain text.
-
-Original Resume:
-"""${resumeText}"""
-
-Job Description:
-"""${jobDescription}"""
-
-Missing Skills to incorporate: ${missingSkills.join(", ")}
-Missing Phrases to incorporate: ${missingPhrases.join(", ")}
-`;
-
-/**
- * Mock Data for Initial Analysis
- * Used when USE_MOCK=true or mock=true query parameter
- */
-const MOCK_INITIAL_ANALYSIS = {
-  overallScore: 85,
-  jobMatchScore: 78,
-  atsCompatibilityScore: 82,
-  readabilityScore: 92,
-  briefSummary:
-    "Strong technical background with relevant experience. Resume could benefit from more specific metrics and inclusion of Docker and PostgreSQL skills to better match the job requirements.",
-  missingSkills: ["Docker", "PostgreSQL", "CI/CD"],
-  missingPhrases: ["agile methodology", "cross-functional teams"],
-};
-
-/**
- * Mock Data for Optimized Resume
- * Used when USE_MOCK=true or mock=true query parameter
- */
-const MOCK_OPTIMIZED_RESUME = `JOHN DOE
-Email: john.doe@email.com | Phone: +1234567890
-LinkedIn: linkedin.com/in/johndoe
-
-PROFESSIONAL SUMMARY
-Results-driven Software Engineer with 5+ years of experience in full-stack development, specializing in React, Node.js, and cloud technologies. Proven track record of delivering scalable solutions using agile methodology while working with cross-functional teams. Expertise in CI/CD pipelines, Docker, and PostgreSQL.
-
-TECHNICAL SKILLS
-• Languages: JavaScript, Python, Java
-• Frameworks: React, Node.js, Express
-• DevOps: Docker, CI/CD, PostgreSQL
-• Cloud: AWS, Azure
-• Methodologies: Agile, Scrum
-
-PROFESSIONAL EXPERIENCE
-Senior Software Engineer | Tech Corp | 2020 - Present
-• Led cross-functional teams in developing microservices architecture
-• Implemented CI/CD pipelines reducing deployment time by 40%
-• Managed PostgreSQL databases and Docker containerization
-• Collaborated using agile methodology
-
-Software Developer | StartUp Inc | 2018 - 2020
-• Developed full-stack applications using React and Node.js
-• Optimized database queries improving performance by 30%
-
-EDUCATION
-Bachelor of Science in Computer Science
-State University | 2018`;
-
-/**
- * Helper function to get mock or real prompt
- */
-const getPrompt = {
-  initialAnalysis: (resumeText, jobDescription) => {
-    return INITIAL_ANALYSIS_PROMPT(resumeText, jobDescription);
+  "originalResume": {
+    "contact": {
+      "name": "string",
+      "phone": "string",
+      "email": "string",
+      "address": "string"
+    },
+    "summary": "string",
+    "experience": [
+      {
+        "position": "string",
+        "company": "string",
+        "period": "string",
+        "responsibilities": ["string"]
+      }
+    ],
+    "education": [
+      {
+        "institution": "string",
+        "period": "string"
+      }
+    ],
+    "skills": ["string"],
+    "languages": ["string"]
   },
-
-  optimization: (resumeText, jobDescription, missingSkills, missingPhrases) => {
-    return OPTIMIZATION_PROMPT(
-      resumeText,
-      jobDescription,
-      missingSkills,
-      missingPhrases
-    );
+  "enhancedResume": {
+    "contact": {
+      "name": "string",
+      "phone": "string with country code",
+      "email": "string",
+      "location": "string - streamlined address",
+      "linkedin": "string - placeholder or actual URL"
+    },
+    "summary": "string - expanded with industry keywords, quantifiable qualities, and career objectives",
+    "experience": [
+      {
+        "position": "string - specific job title",
+        "company": "string - full company name with acronym expanded",
+        "period": "string - formatted as Month Year - Month Year",
+        "responsibilities": ["string - action verb statements with metrics and achievements"]
+      }
+    ],
+    "education": [
+      {
+        "degree": "string - full degree title",
+        "institution": "string",
+        "period": "string",
+        "relevant": "string - relevant coursework (optional)"
+      }
+    ],
+    "skills": {
+      "technical": ["string - specific technical skills"],
+      "soft": ["string - specific soft skills"]
+    },
+    "languages": ["string - language with proficiency level"],
+    "certifications": "string - placeholder or actual certifications"
   },
-};
-
-/**
- * Helper function to get mock data
- */
-const getMockData = {
-  initialAnalysis: () => {
-    return JSON.stringify(MOCK_INITIAL_ANALYSIS);
-  },
-
-  optimization: () => {
-    return MOCK_OPTIMIZED_RESUME;
-  },
-};
-
-/**
- * Check if mock mode should be enabled
- */
-const shouldUseMock = (req) => {
-  const isDev = process.env.NODE_ENV === "development";
-  const queryMock = req.query.mock === "true";
-  const envMock = process.env.USE_MOCK === "true";
-
-  return queryMock || envMock;
-};
-
-/**
- * Check if AI calls are allowed (prevent token usage in dev)
- */
-const isAICallAllowed = (useMock) => {
-  const isDev = process.env.NODE_ENV === "development";
-
-  if (!useMock && isDev) {
-    return {
-      allowed: false,
-      message: "⚠️ Token usage disabled in dev mode.",
-    };
+  "improvements": [
+    {
+      "category": "string",
+      "changes": ["string"],
+      "impact": "high or critical"
+    }
+  ],
+  "atsScore": {
+    "original": number,
+    "enhanced": number,
+    "categories": [
+      {
+        "name": "string",
+        "original": number,
+        "enhanced": number
+      }
+    ]
   }
-
-  return { allowed: true };
-};
+}
+`;
 
 module.exports = {
   AI_CONFIG,
-  getPrompt,
-  getMockData,
-  shouldUseMock,
-  isAICallAllowed,
-
-  // Export raw prompts for reference/documentation
-  INITIAL_ANALYSIS_PROMPT,
-  OPTIMIZATION_PROMPT,
-  MOCK_INITIAL_ANALYSIS,
-  MOCK_OPTIMIZED_RESUME,
+  RESUME_OPTIMIZATION_PROMPT,
 };
