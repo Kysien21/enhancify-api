@@ -6,16 +6,16 @@ const ExtractedResume = require('../models/ExtractedResume');
 exports.uploadResume = async(req, res) => {
     try {
         const file = req.file;
-        const { jobDescription } = req.body; // ✅ Removed category
+        const { jobDescription } = req.body; // ✅ Now optional
         
         console.log("📥 File received:", req.file);
-        console.log("📝 Job Desc:", jobDescription);
+        console.log("📝 Job Desc:", jobDescription || "Not provided");
 
-        // ✅ Validation - Only file and job description needed
-        if (!file || !jobDescription) {
+        // ✅ Validation - Only file is required now
+        if (!file) {
             return res.status(400).json({ 
                 success: false, 
-                message: "Missing file or job description." 
+                message: "File is required." 
             });
         }
 
@@ -82,11 +82,11 @@ exports.uploadResume = async(req, res) => {
 
         console.log("👤 User ID from session:", req.session.user._id);
         
-        // ✅ Save to DB without category
+        // ✅ Save to DB - jobDescription is now optional
         const saved = await ExtractedResume.create({
             userId: req.session.user._id,
             resumeText,
-            jobDescription,
+            jobDescription: jobDescription || "", // ✅ Default to empty string if not provided
             originalFile: originalFilePath
         });
 

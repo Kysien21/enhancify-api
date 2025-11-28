@@ -26,10 +26,12 @@ const PORT = process.env.PORT || 3000;
 app.set("trust proxy", 1);
 
 // ✅ Security Headers
-app.use(helmet({
-  contentSecurityPolicy: false, // Disable if you're serving static files
-  crossOriginEmbedderPolicy: false
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Disable if you're serving static files
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // ✅ Create uploads folder if missing
 const uploadDir = path.join(__dirname, "uploads");
@@ -72,12 +74,13 @@ const authLimiter = rateLimit({
   max: 5, // 5 login/signup attempts per window
   message: {
     success: false,
-    message: 'Too many authentication attempts, please try again after 15 minutes.'
+    message:
+      "Too many authentication attempts, please try again after 15 minutes.",
   },
   standardHeaders: true,
   legacyHeaders: false,
   // Skip successful requests
-  skipSuccessfulRequests: true
+  skipSuccessfulRequests: true,
 });
 
 // ✅ Rate Limiting for API Routes (more lenient)
@@ -86,7 +89,7 @@ const apiLimiter = rateLimit({
   max: 100, // 100 requests per window
   message: {
     success: false,
-    message: 'Too many requests, please try again later.'
+    message: "Too many requests, please try again later.",
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -104,7 +107,7 @@ app.use(
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
       collectionName: "sessions",
-      touchAfter: 24 * 3600 // Lazy session update (in seconds)
+      touchAfter: 24 * 3600, // Lazy session update (in seconds)
     }),
     cookie: {
       secure: isProduction,
@@ -148,19 +151,21 @@ const analysisRoute = require("./routes/analysis");
 const feedbackRoute = require("./routes/feedback");
 const historyRoute = require("./routes/history");
 const resultRoute2 = require("./routes/result");
+const userProfileRoute = require("./routes/userProfile");
 
 app.use("/api", requireAuth, uploadRoute);
 app.use("/api", requireAuth, analysisRoute);
 app.use("/api", requireAuth, feedbackRoute);
 app.use("/api", requireAuth, historyRoute);
 app.use("/api", requireAuth, resultRoute2);
+app.use("/api", requireAuth, userProfileRoute);
 
 // ✅ Health check endpoint
 app.get("/health", (req, res) => {
-  res.status(200).json({ 
+  res.status(200).json({
     status: "ok",
     environment: process.env.NODE_ENV || "development",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -168,27 +173,30 @@ app.get("/health", (req, res) => {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: "Route not found"
+    message: "Route not found",
   });
 });
 
 // ✅ Global Error Handler
 app.use((err, req, res, next) => {
   console.error("❌ Global Error:", err);
-  
+
   // CORS errors
   if (err.message === "Not allowed by CORS") {
     return res.status(403).json({
       success: false,
-      message: "CORS policy: Origin not allowed"
+      message: "CORS policy: Origin not allowed",
     });
   }
 
   // Multer file upload errors
-  if (err.message && err.message.includes("Only .pdf and .docx files are allowed")) {
+  if (
+    err.message &&
+    err.message.includes("Only .pdf and .docx files are allowed")
+  ) {
     return res.status(400).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 
@@ -196,7 +204,7 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({
     success: false,
     message: isProduction ? "Internal server error" : err.message,
-    ...((!isProduction && err.stack) && { stack: err.stack })
+    ...(!isProduction && err.stack && { stack: err.stack }),
   });
 });
 
@@ -204,11 +212,11 @@ app.use((err, req, res, next) => {
 const dbURI = process.env.MONGO_URI;
 
 mongoose
-  .connect(dbURI, { 
+  .connect(dbURI, {
     serverSelectionTimeoutMS: 5000,
     // Additional options for better connection handling
     maxPoolSize: 10,
-    minPoolSize: 5
+    minPoolSize: 5,
   })
   .then(() => {
     console.log("✅ Connected to MongoDB");
@@ -238,18 +246,18 @@ mongoose
   });
 
 // ✅ Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+process.on("SIGTERM", () => {
+  console.log("SIGTERM signal received: closing HTTP server");
   mongoose.connection.close(false, () => {
-    console.log('MongoDB connection closed');
+    console.log("MongoDB connection closed");
     process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
+process.on("SIGINT", () => {
+  console.log("SIGINT signal received: closing HTTP server");
   mongoose.connection.close(false, () => {
-    console.log('MongoDB connection closed');
+    console.log("MongoDB connection closed");
     process.exit(0);
   });
 });

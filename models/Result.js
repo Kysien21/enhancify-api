@@ -5,7 +5,7 @@ const resultSchema = new Schema({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     resumeText: { type: String, required: true },
     optimizedResume: { type: String, required: false },
-    jobDescription: { type: String, required: true },
+    jobDescription: { type: String, required: false },
     // ✅ REMOVED: category field
     
     // Scoring fields

@@ -15,15 +15,16 @@ const anthropic = new Anthropic({
 /**
  * Analyze and optimize resume
  * This is the main function that processes the uploaded resume
+ * ✅ Job description is now OPTIONAL
  */
 exports.analyzeResumeInitial = async (req, res) => {
   const { resumeText, jobDescription } = req.body;
 
-  // Validate required fields
-  if (!resumeText || !jobDescription) {
-    return res
-      .status(400)
-      .json({ message: "Resume and job description required." });
+  // ✅ Validate required fields - only resumeText is required now
+  if (!resumeText) {
+    return res.status(400).json({ 
+      message: "Resume text is required." 
+    });
   }
 
   // Check user session
@@ -32,11 +33,15 @@ exports.analyzeResumeInitial = async (req, res) => {
   }
 
   try {
-    // Get the prompt with resume and job description
-    const prompt = RESUME_OPTIMIZATION_PROMPT(resumeText, jobDescription);
+    // ✅ Get the prompt with resume and optional job description
+    const prompt = RESUME_OPTIMIZATION_PROMPT(
+      resumeText, 
+      jobDescription || "" // Pass empty string if no job description
+    );
 
     console.log("🧠 Calling Claude API for resume analysis and optimization...");
     console.log("👤 User:", req.session.user.email);
+    console.log("📝 Job Description:", jobDescription ? "Provided" : "Not provided (general optimization)");
 
     // Call Claude AI API
     const response = await anthropic.messages.create({
@@ -97,7 +102,9 @@ exports.analyzeResumeInitial = async (req, res) => {
     // Send success response
     return res.status(200).json({
       success: true,
-      message: "✅ Resume analyzed and optimized successfully",
+      message: jobDescription 
+        ? "✅ Resume analyzed and optimized for job posting" 
+        : "✅ Resume analyzed and optimized (general)",
       analysis: parsedResult,
       resultId: savedResult._id,
     });

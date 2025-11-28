@@ -31,11 +31,17 @@ const verifySession = (req, res, next) => {
 
 // ==================== SIGN OUT / LOGOUT ====================
 /**
- * Destroy user session and clear cookies
+ * ✅ FIXED: Properly destroy user session and clear cookies
  * Works for both /signout and /logout endpoints
  */
 const signout = (req, res) => {
   try {
+    const userEmail = req.session?.user?.email || 'Unknown';
+    const userRole = req.session?.user?.role || 'Unknown';
+    
+    console.log(`🚪 Logout initiated for: ${userEmail} (${userRole})`);
+
+    // ✅ CRITICAL FIX: Destroy session FIRST, then clear cookie in callback
     req.session.destroy((err) => {
       if (err) {
         console.error("❌ Error destroying session:", err);
@@ -45,12 +51,15 @@ const signout = (req, res) => {
         });
       }
 
+      // ✅ Clear cookie AFTER session is destroyed
       res.clearCookie("connect.sid", {
+        path: '/',
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
-      console.log("✅ User logged out successfully");
+      
+      console.log(`✅ User logged out successfully: ${userEmail}`);
       
       return res.status(200).json({ 
         success: true,
@@ -116,39 +125,50 @@ const signin = async (req, res) => {
 
     console.log("✅ User authenticated, creating session for:", email);
 
-    // Create session
-    req.session.user = {
-      _id: user._id,
-      role: user.role || "user",
-      email: user.Email_Address,
-      firstName: user.First_name,
-    };
-
-    console.log("📝 Session user set:", req.session.user);
-
-    // Save session before sending response
-    req.session.save((err) => {
+    // ✅ CRITICAL FIX: Regenerate session on login to prevent fixation attacks
+    req.session.regenerate((err) => {
       if (err) {
-        console.error("❌ Session save error:", err);
+        console.error("❌ Session regeneration error:", err);
         return res.status(500).json({ 
           success: false,
           message: "Session creation failed" 
         });
       }
 
-      console.log("✅ Session saved successfully!");
-      console.log("Session ID:", req.sessionID);
-      
-      return res.status(200).json({
-        success: true,
-        message: "Login successful",
-        isFirstLogin,
-        user: {
-          id: user._id,
-          email: user.Email_Address,
-          role: user.role || "user",
-          firstName: user.First_name,
-        },
+      // Create session data
+      req.session.user = {
+        _id: user._id,
+        role: user.role || "user",
+        email: user.Email_Address,
+        firstName: user.First_name,
+      };
+
+      console.log("📝 Session user set:", req.session.user);
+
+      // Save session before sending response
+      req.session.save((err) => {
+        if (err) {
+          console.error("❌ Session save error:", err);
+          return res.status(500).json({ 
+            success: false,
+            message: "Session creation failed" 
+          });
+        }
+
+        console.log("✅ Session saved successfully!");
+        console.log("Session ID:", req.sessionID);
+        
+        return res.status(200).json({
+          success: true,
+          message: "Login successful",
+          isFirstLogin,
+          user: {
+            id: user._id,
+            email: user.Email_Address,
+            role: user.role || "user",
+            firstName: user.First_name,
+          },
+        });
       });
     });
   } catch (error) {
