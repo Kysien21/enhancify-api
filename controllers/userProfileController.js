@@ -2,10 +2,6 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 
 // ==================== GET USER PROFILE ====================
-/**
- * Get current user's profile information
- * GET /api/v1/user/profile
- */
 const getUserProfile = async (req, res) => {
   try {
     const userId = req.session.user._id;
@@ -25,7 +21,7 @@ const getUserProfile = async (req, res) => {
         firstName: user.First_name,
         lastName: user.Last_name,
         email: user.Email_Address,
-        mobile: user.Mobile_No,
+        category: user.category, // ✅ Return category instead of mobile
         username: user.username || `@${user.First_name.toLowerCase()}_${user._id.toString().slice(-5)}`,
         profilePicture: user.profilePicture || null,
         loginCount: user.loginCount,
@@ -43,28 +39,38 @@ const getUserProfile = async (req, res) => {
 };
 
 // ==================== UPDATE USER PROFILE ====================
-/**
- * Update user profile information
- * PUT /api/v1/user/profile
- */
 const updateUserProfile = async (req, res) => {
   try {
     const userId = req.session.user._id;
-    const { firstName, lastName, mobile } = req.body;
+    const { firstName, lastName, category } = req.body; // ✅ Changed from mobile to category
     
-    // Validation
-    if (!firstName || !lastName || !mobile) {
+    // ✅ Updated validation
+    if (!firstName || !lastName || !category) {
       return res.status(400).json({
         success: false,
-        message: 'First name, last name, and mobile are required'
+        message: 'First name, last name, and category are required'
       });
     }
     
-    // Validate mobile number (11-15 digits)
-    if (mobile.length < 11 || mobile.length > 15 || !/^\d+$/.test(mobile)) {
+    // ✅ Validate category
+    const validCategories = [
+      'Information Technology',
+      'Engineering',
+      'Business Administration',
+      'Healthcare',
+      'Education',
+      'Marketing',
+      'Finance',
+      'Human Resources',
+      'Sales',
+      'Customer Service',
+      'Other'
+    ];
+
+    if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,
-        message: 'Mobile number must be 11-15 digits'
+        message: 'Invalid category selected'
       });
     }
     
@@ -77,10 +83,10 @@ const updateUserProfile = async (req, res) => {
       });
     }
     
-    // Update fields
+    // ✅ Update fields
     user.First_name = firstName;
     user.Last_name = lastName;
-    user.Mobile_No = mobile;
+    user.category = category; // ✅ Update category instead of mobile
     
     await user.save();
     
@@ -95,7 +101,7 @@ const updateUserProfile = async (req, res) => {
       user: {
         firstName: user.First_name,
         lastName: user.Last_name,
-        mobile: user.Mobile_No
+        category: user.category
       }
     });
   } catch (error) {
@@ -108,16 +114,11 @@ const updateUserProfile = async (req, res) => {
 };
 
 // ==================== UPDATE PASSWORD ====================
-/**
- * Update user password
- * PUT /api/v1/user/password
- */
 const updatePassword = async (req, res) => {
   try {
     const userId = req.session.user._id;
     const { currentPassword, newPassword, confirmPassword } = req.body;
     
-    // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
       return res.status(400).json({
         success: false,
@@ -132,10 +133,10 @@ const updatePassword = async (req, res) => {
       });
     }
     
-    if (newPassword.length < 6) {
+    if (newPassword.length < 10) { // ✅ Match frontend validation
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 6 characters long'
+        message: 'Password must be at least 10 characters long'
       });
     }
     
@@ -148,7 +149,6 @@ const updatePassword = async (req, res) => {
       });
     }
     
-    // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, user.Password);
     
     if (!isMatch) {
@@ -158,7 +158,6 @@ const updatePassword = async (req, res) => {
       });
     }
     
-    // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.Password = hashedPassword;
     await user.save();
@@ -179,16 +178,11 @@ const updatePassword = async (req, res) => {
 };
 
 // ==================== DELETE ACCOUNT ====================
-/**
- * Delete user account (soft delete - set isActive to false)
- * DELETE /api/v1/user/account
- */
 const deleteAccount = async (req, res) => {
   try {
     const userId = req.session.user._id;
     const { password, confirmDelete } = req.body;
     
-    // Validation
     if (!password || !confirmDelete) {
       return res.status(400).json({
         success: false,
@@ -212,7 +206,6 @@ const deleteAccount = async (req, res) => {
       });
     }
     
-    // Verify password
     const isMatch = await bcrypt.compare(password, user.Password);
     
     if (!isMatch) {
@@ -222,18 +215,15 @@ const deleteAccount = async (req, res) => {
       });
     }
     
-    // Soft delete - deactivate account
     user.isActive = false;
     await user.save();
     
-    // Destroy session
     req.session.destroy((err) => {
       if (err) {
         console.error('Session destroy error:', err);
       }
     });
     
-    // Clear cookie
     res.clearCookie('connect.sid', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

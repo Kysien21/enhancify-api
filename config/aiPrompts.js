@@ -1,12 +1,7 @@
 // ========================================
 // AI Configuration and Prompts
 // ========================================
-// This file contains AI prompts and model configuration
-// for the resume optimization system.
 
-/**
- * AI Model Configuration
- */
 const AI_CONFIG = {
   model: "claude-sonnet-4-5-20250929",
   initialAnalysis: {
@@ -16,7 +11,6 @@ const AI_CONFIG = {
 };
 
 /**
- * Resume Analysis and Optimization Prompt
  * This is the ONLY prompt used in the system
  * It analyzes the resume and creates an optimized version
  */
@@ -35,23 +29,24 @@ INPUT HANDLING:
 - If a job description is provided: Align the resume content to match the job requirements by emphasizing relevant skills, experiences, and keywords from the job posting
 - If no job description is provided: Perform general optimization to maximize ATS compatibility across various roles
 
-CRITICAL RULES:
+🚨 CRITICAL RULES - NEVER VIOLATE:
 - Work ONLY with the text that has been scanned/extracted from the resume
 - DO NOT add any skills, experiences, certifications, or qualifications that are not already present in the original resume
 - DO NOT fill gaps or infer missing information
 - DO NOT suggest adding new content
+- DO NOT fabricate or invent certifications, courses, or achievements
 - ONLY reorganize, reformat, and optimize the existing content for ATS compatibility
 - When a job description is provided, prioritize and emphasize experiences/skills that match the job requirements, but never fabricate new ones
 - If information is unclear or incomplete, preserve it as-is rather than inventing details
 - Focus on: improving formatting, enhancing keyword placement, optimizing section headers, ensuring ATS-friendly structure, and (if job description provided) strategic emphasis of relevant qualifications
 
-Your optimization should make the scanned content more ATS-friendly without adding ANY new substantive information.
+🎯 CERTIFICATIONS RULE:
+- If the original resume has NO certifications section or mentions NO certifications → Set certifications to empty string ""
+- If the original resume mentions certifications → Include them in enhanced resume
+- NEVER add placeholder text like "N/A", "None", "To be added", or example certifications
+- When in doubt, leave certifications as empty string ""
 
-CRITICAL INSTRUCTIONS:
-1. Return ONLY valid JSON - no explanations, no markdown, no preamble, no additional text
-2. Do not wrap the JSON in markdown code blocks
-3. Follow the exact structure specified below
-4. Enhance keywords, improve formatting, and expand content for better ATS compatibility
+Your optimization should make the scanned content more ATS-friendly without adding ANY new substantive information.
 
 OPTIMIZATION GUIDELINES:
 - Expand job titles for clarity (e.g., "Intern" → "Forestry Intern")
@@ -104,7 +99,7 @@ Your response must be a valid JSON object with this exact structure:
       "phone": "string with country code",
       "email": "string",
       "location": "string - streamlined address",
-      "linkedin": "string - placeholder or actual URL"
+      "linkedin": "string - ONLY if exists in original, otherwise empty string"
     },
     "summary": "string - expanded with industry keywords, quantifiable qualities, and career objectives",
     "experience": [
@@ -119,7 +114,7 @@ Your response must be a valid JSON object with this exact structure:
       {
         "degree": "string - full degree title",
         "institution": "string",
-        "period": "string",
+        "period": "string"
       }
     ],
     "skills": {
@@ -127,7 +122,7 @@ Your response must be a valid JSON object with this exact structure:
       "soft": ["string - specific soft skills"]
     },
     "languages": ["string - language with proficiency level"],
-    "certifications": "string - placeholder or actual certifications"
+    "certifications": "string - MUST BE EMPTY STRING if none in original resume, otherwise list existing certifications separated by bullet points"
   },
   "improvements": [
     {
@@ -148,6 +143,8 @@ Your response must be a valid JSON object with this exact structure:
     ]
   }
 }
+
+🚨 RETURN ONLY VALID JSON - NO MARKDOWN, NO EXPLANATIONS, NO PREAMBLE
 `;
 
 module.exports = {

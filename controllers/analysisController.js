@@ -13,6 +13,51 @@ const anthropic = new Anthropic({
 });
 
 /**
+ * ✅ Normalize certifications - remove if empty or placeholder
+ */
+const normalizeCertifications = (certifications) => {
+  if (!certifications) return "";
+  
+  // If it's an array, join with bullet points
+  if (Array.isArray(certifications)) {
+    const filtered = certifications.filter(cert => 
+      cert && 
+      cert.trim() !== "" && 
+      !cert.toLowerCase().includes("n/a") &&
+      !cert.toLowerCase().includes("none") &&
+      !cert.toLowerCase().includes("to be added")
+    );
+    return filtered.length > 0 ? filtered.join(" • ") : "";
+  }
+  
+  // If it's a string, check if it's a placeholder
+  const certStr = certifications.toString().trim();
+  const placeholders = ["n/a", "none", "to be added", "placeholder", "null", "undefined"];
+  
+  if (placeholders.some(p => certStr.toLowerCase().includes(p))) {
+    return "";
+  }
+  
+  return certStr || "";
+};
+
+/**
+ * ✅ Clean LinkedIn URL - remove if placeholder
+ */
+const normalizeLinkedIn = (linkedin) => {
+  if (!linkedin) return "";
+  
+  const linkedinStr = linkedin.toString().trim().toLowerCase();
+  const placeholders = ["n/a", "none", "to be added", "placeholder", "null"];
+  
+  if (placeholders.some(p => linkedinStr.includes(p)) || linkedinStr === "") {
+    return "";
+  }
+  
+  return linkedin;
+};
+
+/**
  * Analyze and optimize resume
  * This is the main function that processes the uploaded resume
  * ✅ Job description is now OPTIONAL
@@ -82,6 +127,24 @@ exports.analyzeResumeInitial = async (req, res) => {
       parsedResult = JSON.parse(sanitized);
       console.log("✅ Successfully parsed JSON response");
       console.log("📈 ATS Score - Original:", parsedResult.atsScore?.original, "Enhanced:", parsedResult.atsScore?.enhanced);
+      
+      // ✅ CRITICAL: Clean up certifications and LinkedIn
+      if (parsedResult.enhancedResume) {
+        parsedResult.enhancedResume.certifications = normalizeCertifications(
+          parsedResult.enhancedResume.certifications
+        );
+        
+        if (parsedResult.enhancedResume.contact) {
+          parsedResult.enhancedResume.contact.linkedin = normalizeLinkedIn(
+            parsedResult.enhancedResume.contact.linkedin
+          );
+        }
+        
+        console.log("🔍 Certifications after normalization:", 
+          parsedResult.enhancedResume.certifications === "" ? "NONE (empty string)" : parsedResult.enhancedResume.certifications
+        );
+      }
+      
     } catch (error) {
       console.error("❌ JSON Parse Error:", error.message);
       console.error("📄 Raw response:", sanitized.substring(0, 500));

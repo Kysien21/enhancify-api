@@ -68,31 +68,39 @@ app.use(
   })
 );
 
-// ✅ Rate Limiting for Auth Routes
+// ✅ Rate Limiting for Auth Routes - More lenient in development
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 login/signup attempts per window
+  max: process.env.NODE_ENV === 'production' ? 5 : 100, // 100 in dev, 5 in production
   message: {
     success: false,
-    message:
-      "Too many authentication attempts, please try again after 15 minutes.",
+    message: "Too many authentication attempts, please try again after 15 minutes.",
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip successful requests
   skipSuccessfulRequests: true,
+  // ✅ Skip rate limiting for localhost in development
+  skip: (req) => {
+    return process.env.NODE_ENV === 'development' && 
+           (req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1');
+  }
 });
 
-// ✅ Rate Limiting for API Routes (more lenient)
+// ✅ Rate Limiting for API Routes - More lenient in development
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // 1000 in dev, 100 in production
   message: {
     success: false,
     message: "Too many requests, please try again later.",
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // ✅ Skip rate limiting for localhost in development
+  skip: (req) => {
+    return process.env.NODE_ENV === 'development' && 
+           (req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1');
+  }
 });
 
 app.use(express.json());
@@ -152,6 +160,7 @@ const feedbackRoute = require("./routes/feedback");
 const historyRoute = require("./routes/history");
 const resultRoute2 = require("./routes/result");
 const userProfileRoute = require("./routes/userProfile");
+const passwordRoute = require("./routes/password");
 
 app.use("/api", requireAuth, uploadRoute);
 app.use("/api", requireAuth, analysisRoute);
@@ -159,6 +168,7 @@ app.use("/api", requireAuth, feedbackRoute);
 app.use("/api", requireAuth, historyRoute);
 app.use("/api", requireAuth, resultRoute2);
 app.use("/api", requireAuth, userProfileRoute);
+app.use("/api/v1/auth", passwordRoute);
 
 // ✅ Health check endpoint
 app.get("/health", (req, res) => {

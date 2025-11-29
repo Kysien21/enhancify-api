@@ -1,12 +1,9 @@
 const User = require("../../models/User");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const { sendPasswordResetEmail } = require('../../utils/emailService');
 
 // ==================== SESSION VERIFICATION ====================
-/**
- * Verify if user has a valid session
- * Used by frontend to check authentication status
- */
 const verifySession = (req, res, next) => {
   console.log("🔍 verifySession called");
   console.log("Session ID:", req.sessionID);
@@ -30,10 +27,6 @@ const verifySession = (req, res, next) => {
 };
 
 // ==================== SIGN OUT / LOGOUT ====================
-/**
- * ✅ FIXED: Properly destroy user session and clear cookies
- * Works for both /signout and /logout endpoints
- */
 const signout = (req, res) => {
   try {
     const userEmail = req.session?.user?.email || 'Unknown';
@@ -41,7 +34,6 @@ const signout = (req, res) => {
     
     console.log(`🚪 Logout initiated for: ${userEmail} (${userRole})`);
 
-    // ✅ CRITICAL FIX: Destroy session FIRST, then clear cookie in callback
     req.session.destroy((err) => {
       if (err) {
         console.error("❌ Error destroying session:", err);
@@ -51,7 +43,6 @@ const signout = (req, res) => {
         });
       }
 
-      // ✅ Clear cookie AFTER session is destroyed
       res.clearCookie("connect.sid", {
         path: '/',
         httpOnly: true,
@@ -76,18 +67,12 @@ const signout = (req, res) => {
 };
 
 // ==================== SIGN IN / LOGIN ====================
-/**
- * Authenticate user and create session
- * ✅ Checks if user account is blocked (isActive)
- * Works for both /signin and /login endpoints
- */
 const signin = async (req, res) => {
   const { email, password } = req.body;
 
   console.log("🔐 Login attempt for:", email);
 
   try {
-    // Find user by email
     const user = await User.findOne({ Email_Address: email });
     
     if (!user) {
@@ -98,7 +83,6 @@ const signin = async (req, res) => {
       });
     }
 
-    // ✅ CRITICAL: Check if user account is blocked
     if (!user.isActive) {
       console.log("🚫 Blocked user attempted login:", email);
       return res.status(403).json({ 
@@ -107,7 +91,6 @@ const signin = async (req, res) => {
       });
     }
 
-    // Verify password
     const match = await bcrypt.compare(password, user.Password);
     if (!match) {
       console.log("❌ Invalid password for:", email);
@@ -117,7 +100,6 @@ const signin = async (req, res) => {
       });
     }
 
-    // Track login statistics
     const isFirstLogin = user.loginCount === 0;
     user.loginCount += 1;
     user.lastLogin = new Date();
@@ -125,7 +107,6 @@ const signin = async (req, res) => {
 
     console.log("✅ User authenticated, creating session for:", email);
 
-    // ✅ CRITICAL FIX: Regenerate session on login to prevent fixation attacks
     req.session.regenerate((err) => {
       if (err) {
         console.error("❌ Session regeneration error:", err);
@@ -135,7 +116,6 @@ const signin = async (req, res) => {
         });
       }
 
-      // Create session data
       req.session.user = {
         _id: user._id,
         role: user.role || "user",
@@ -145,7 +125,6 @@ const signin = async (req, res) => {
 
       console.log("📝 Session user set:", req.session.user);
 
-      // Save session before sending response
       req.session.save((err) => {
         if (err) {
           console.error("❌ Session save error:", err);
@@ -182,62 +161,138 @@ const signin = async (req, res) => {
 };
 
 // ==================== SIGN UP / REGISTER ====================
-/**
- * Create new user account
- * Validates input and creates user with hashed password
- */
 const signup = async (req, res) => {
+  // ✅ LOG REQUEST BODY FOR DEBUGGING
+  console.log("📥 Signup request body:", JSON.stringify(req.body, null, 2));
+  
   const {
     First_name,
     Last_name,
-    Mobile_No,
+    Category, // ✅ Frontend sends capitalized "Category"
     Email_Address,
     Password,
     Confirm_Password,
     agreeToTerms,
   } = req.body;
+  
+  // ✅ Convert to lowercase for database
+  let category = Category;
+  
+  console.log("🔍 Raw Category from frontend:", `"${Category}"`);
+  console.log("🔍 Category length:", Category?.length);
+  console.log("🔍 Category type:", typeof Category);
+  
+  // ✅ Category mapping - convert frontend values to backend format
+  const categoryMapping = {
+    'technology': 'Information Technology',
+    'information technology': 'Information Technology',
+    'engineering': 'Engineering',
+    'business': 'Business Administration',
+    'business administration': 'Business Administration',
+    'healthcare': 'Healthcare',
+    'education': 'Education',
+    'marketing': 'Marketing',
+    'finance': 'Finance',
+    'hr': 'Human Resources',
+    'human resources': 'Human Resources',
+    'sales': 'Sales',
+    'customer service': 'Customer Service',
+    'other': 'Other'
+  };
+  
+  // ✅ Normalize category - trim and convert to lowercase for matching
+  if (category) {
+    const normalizedInput = category.trim().toLowerCase();
+    category = categoryMapping[normalizedInput] || category.trim();
+  }
+  
+  console.log("🔍 Mapped category:", `"${category}"`);
 
-  // Validate required fields
+  // ✅ Updated validation - no Mobile_No, added category
   if (
     !First_name ||
     !Last_name ||
-    !Mobile_No ||
     !Email_Address ||
     !Password ||
     !Confirm_Password
   ) {
-    return res
-      .status(400)
-      .json({ message: "All fields are required and terms must be accepted" });
+    console.log("❌ Missing required fields");
+    return res.status(400).json({ 
+      success: false,
+      message: "All fields are required (First Name, Last Name, Email, Password, Confirm Password)" 
+    });
   }
 
-  // Validate password match
+  // ✅ Validate category (only for regular users)
+  const validCategories = [
+    'Information Technology',
+    'Engineering',
+    'Business Administration',
+    'Healthcare',
+    'Education',
+    'Marketing',
+    'Finance',
+    'Human Resources',
+    'Sales',
+    'Customer Service',
+    'Other'
+  ];
+
+  // Category is required for non-admin signups
+  if (!category || category.trim() === '') {
+    console.log("❌ Category is missing or empty");
+    return res.status(400).json({ 
+      success: false,
+      message: "Category is required. Please select a department." 
+    });
+  }
+
+  // ✅ Validate mapped category
+  if (!validCategories.includes(category)) {
+    console.log("❌ Invalid category after mapping:", `"${category}"`);
+    console.log("📋 Valid categories:", validCategories);
+    return res.status(400).json({ 
+      success: false,
+      message: `Invalid category: "${category}". Must be one of: ${validCategories.join(', ')}` 
+    });
+  }
+
   if (Password !== Confirm_Password) {
-    return res.status(400).json({ message: "Passwords do not match" });
+    return res.status(400).json({ 
+      success: false,
+      message: "Passwords do not match" 
+    });
+  }
+
+  // ✅ Password strength validation
+  if (Password.length < 10) { // ✅ Match frontend's 10 character requirement
+    return res.status(400).json({ 
+      success: false,
+      message: "Password must be at least 10 characters long" 
+    });
   }
 
   try {
-    // Check if user already exists
     const existingUser = await User.findOne({ Email_Address });
     if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "Account already exists with this email" });
+      return res.status(400).json({ 
+        success: false,
+        message: "Account already exists with this email" 
+      });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(Password, 10);
     
-    console.log("👤 Creating new user:", First_name, Last_name);
+    console.log("👤 Creating new user:", First_name, Last_name, "- Category:", category);
     
-    // Create new user
+    // ✅ Create user with category instead of Mobile_No
     const user = new User({
       First_name,
       Last_name,
-      Mobile_No,
+      category: category, // ✅ Use mapped category
       Email_Address,
       Password: hashedPassword,
-      isActive: true, // ✅ New users are active by default
+      isActive: true,
     });
 
     const savedUser = await user.save();
@@ -251,6 +306,7 @@ const signup = async (req, res) => {
         id: savedUser._id,
         email: savedUser.Email_Address,
         firstName: savedUser.First_name,
+        category: savedUser.category,
       }
     });
   } catch (error) {
@@ -264,28 +320,37 @@ const signup = async (req, res) => {
 
 // ==================== FORGOT PASSWORD ====================
 /**
- * Generate password reset token
- * Requires both email and mobile number for security
+ * ✅ UPDATED: No longer requires mobile number
+ * Only email is needed for password reset
  */
 const forgotPassword = async (req, res) => {
-  const { email, mobile } = req.body;
+  const { email } = req.body;
 
-  if (!email || !mobile) {
+  if (!email) {
     return res.status(400).json({ 
-      message: "Email and mobile number are required." 
+      success: false,
+      message: "Email address is required." 
     });
   }
 
   try {
-    // Find user by both email and mobile (extra security)
-    const user = await User.findOne({ 
-      Email_Address: email, 
-      Mobile_No: mobile 
-    });
+    const user = await User.findOne({ Email_Address: email });
 
+    // Security: Don't reveal if email exists
     if (!user) {
-      return res.status(400).json({ 
-        message: "No account found with this email and mobile number." 
+      console.log("⚠️ Password reset requested for non-existent email:", email);
+      return res.status(200).json({ 
+        success: true,
+        message: "If an account exists with this email, a password reset link has been sent."
+      });
+    }
+
+    // Check if account is active
+    if (!user.isActive) {
+      console.log("⚠️ Password reset requested for blocked account:", email);
+      return res.status(200).json({ 
+        success: true,
+        message: "If an account exists with this email, a password reset link has been sent."
       });
     }
 
@@ -297,39 +362,71 @@ const forgotPassword = async (req, res) => {
 
     // Create reset link
     const resetLink = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-    console.log("📩 Password reset link:", resetLink);
-
-    // TODO: Send email/SMS with reset link (integrate Nodemailer or Twilio)
     
-    res.json({ 
-      success: true,
-      message: "Password reset link sent (check your email or SMS)", 
-      link: resetLink // Remove in production
-    });
+    console.log(`📧 Sending reset email to: ${user.Email_Address}`);
+    
+    // Send email
+    const emailResult = await sendPasswordResetEmail(
+      user.Email_Address,
+      resetLink,
+      user.First_name
+    );
+
+    if (emailResult.success) {
+      console.log(`✅ Password reset email sent successfully`);
+      return res.json({ 
+        success: true,
+        message: "Password reset link has been sent to your email. Please check your inbox."
+      });
+    } else {
+      console.error("❌ Email send failed:", emailResult.error);
+      
+      // Clear token since email failed
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+      
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send reset email. Please try again later."
+      });
+    }
   } catch (err) {
     console.error("❌ Forgot password error:", err);
     res.status(500).json({ 
-      message: "Error sending reset link", 
-      error: err.message 
+      success: false,
+      message: "An error occurred. Please try again later."
     });
   }
 };
 
 // ==================== RESET PASSWORD ====================
-/**
- * Reset user password using valid token
- * Token expires after 1 hour
- */
 const resetPassword = async (req, res) => {
   const { token } = req.params;
-  const { newPassword } = req.body;
+  const { newPassword, confirmPassword } = req.body;
 
-  if (!newPassword) {
-    return res.status(400).json({ message: "New password is required" });
+  if (!newPassword || !confirmPassword) {
+    return res.status(400).json({ 
+      success: false,
+      message: "Both password fields are required" 
+    });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ 
+      success: false,
+      message: "Passwords do not match" 
+    });
+  }
+
+  if (newPassword.length < 10) { // ✅ Match signup validation
+    return res.status(400).json({ 
+      success: false,
+      message: "Password must be at least 10 characters long" 
+    });
   }
 
   try {
-    // Find user with valid token (not expired)
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() }
@@ -337,7 +434,8 @@ const resetPassword = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({ 
-        message: "Invalid or expired token. Please request a new reset link." 
+        success: false,
+        message: "Password reset link is invalid or has expired. Please request a new one." 
       });
     }
 
@@ -354,32 +452,25 @@ const resetPassword = async (req, res) => {
 
     res.json({ 
       success: true,
-      message: "Password has been reset successfully" 
+      message: "Password has been reset successfully. You can now login with your new password." 
     });
   } catch (err) {
     console.error("❌ Reset password error:", err);
     res.status(500).json({ 
-      message: "Reset failed", 
-      error: err.message 
+      success: false,
+      message: "Password reset failed. Please try again."
     });
   }
 };
 
 // ==================== EXPORTS ====================
 module.exports = {
-  // Session Management
   verifySession,
-  
-  // Authentication
   signin,
   signup,
   signout,
-  
-  // Aliases for backward compatibility
-  login: signin,      // /login works same as /signin
-  logout: signout,    // /logout works same as /signout
-  
-  // Password Recovery
+  login: signin,
+  logout: signout,
   forgotPassword,
   resetPassword,
 };

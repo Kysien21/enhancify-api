@@ -4,14 +4,34 @@ const Schema = mongoose.Schema;
 const userSchema = new Schema({
   First_name: {
     type: String,
+    required: true,
     trim: true,
   },
   Last_name: {
     type: String,
+    required: true,
     trim: true,
   },
-  Mobile_No: {
+  // ✅ REMOVED: Mobile_No field
+  // ✅ NEW: Category/Department field (not required for admin)
+  category: {
     type: String,
+    required: function() {
+      return this.role !== 'admin'; // Only required for non-admin users
+    },
+    enum: [
+      'Information Technology',
+      'Engineering',
+      'Business Administration',
+      'Healthcare',
+      'Education',
+      'Marketing',
+      'Finance',
+      'Human Resources',
+      'Sales',
+      'Customer Service',
+      'Other'
+    ],
     trim: true,
   },
   Email_Address: {
@@ -23,6 +43,7 @@ const userSchema = new Schema({
   },
   Password: {
     type: String,
+    required: true,
   },
 
   // ✅ Login tracking
@@ -48,15 +69,13 @@ const userSchema = new Schema({
     default: "user",
   },
 
-  // ✅ REMOVED ALL SUBSCRIPTION FIELDS - No subscription system
-
-  // Forgot password fields
+  // ✅ Password reset fields
   resetPasswordToken: String,
   resetPasswordExpires: Date,
 
-  // Activity tracking
+  // ✅ Activity tracking
   lastActive: { type: Date, default: Date.now },
-  isActive: { type: Boolean, default: true }, // ✅ For blocking users
+  isActive: { type: Boolean, default: true },
 
   createdAt: { type: Date, default: Date.now },
 });
