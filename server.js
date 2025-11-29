@@ -150,6 +150,10 @@ app.use("/api", apiLimiter);
 app.use(`${BASE_URL}user`, resultRoute);
 app.use(`${BASE_URL}admin`, adminRoute);
 
+// ✅ PASSWORD RESET ROUTES - MUST BE PUBLIC (BEFORE requireAuth middleware)
+const passwordRoute = require("./routes/password");
+app.use("/api/v1/auth", passwordRoute);
+
 // ✅ Middleware
 const { requireAuth } = require("./middleware/authMiddleware");
 
@@ -160,7 +164,6 @@ const feedbackRoute = require("./routes/feedback");
 const historyRoute = require("./routes/history");
 const resultRoute2 = require("./routes/result");
 const userProfileRoute = require("./routes/userProfile");
-const passwordRoute = require("./routes/password");
 
 app.use("/api", requireAuth, uploadRoute);
 app.use("/api", requireAuth, analysisRoute);
@@ -168,7 +171,6 @@ app.use("/api", requireAuth, feedbackRoute);
 app.use("/api", requireAuth, historyRoute);
 app.use("/api", requireAuth, resultRoute2);
 app.use("/api", requireAuth, userProfileRoute);
-app.use("/api/v1/auth", passwordRoute);
 
 // ✅ Health check endpoint
 app.get("/health", (req, res) => {
