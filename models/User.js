@@ -12,25 +12,18 @@ const userSchema = new Schema({
     required: true,
     trim: true,
   },
-  // ✅ REMOVED: Mobile_No field
-  // ✅ NEW: Category/Department field (not required for admin)
+  // ✅ UPDATED: Category/Department field with correct enum values
   category: {
     type: String,
     required: function() {
       return this.role !== 'admin'; // Only required for non-admin users
     },
     enum: [
-      'Information Technology',
-      'Engineering',
-      'Business Administration',
-      'Healthcare',
-      'Education',
-      'Marketing',
-      'Finance',
-      'Human Resources',
-      'Sales',
-      'Customer Service',
-      'Other'
+      'CIT',   // College of Information Technology
+      'CBA',   // College of Business Administration
+      'CTE',   // College of Teacher Education
+      'CAS',   // College of Arts and Sciences
+      'CCJE'   // College of Criminal Justice Education
     ],
     trim: true,
   },

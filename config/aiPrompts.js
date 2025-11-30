@@ -84,11 +84,13 @@ Your response must be a valid JSON object with this exact structure:
         "responsibilities": ["string"]
       }
     ],
-    "education": [
-      {
-        "institution": "string",
-        "period": "string"
-      }
+    "originalResume": {
+  "education": [
+    {
+      "degree": "string - full degree title",
+      "institution": "string",
+      "period": "string"
+    }
     ],
     "skills": ["string"],
     "languages": ["string"]

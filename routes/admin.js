@@ -43,6 +43,13 @@ router.get(
   adminStatsController.getSystemUsageOverTime
 );
 
+// ✅ NEW: Department statistics endpoint
+router.get(
+  "/reports/department-stats",
+  requireRole("admin"),
+  adminStatsController.getDepartmentStats
+);
+
 // ===================== USER MANAGEMENT =====================
 router.get(
   "/users",
@@ -73,8 +80,6 @@ router.post("/change-password",
   requireRole("admin"),
   adminStatsController.changeAdminPassword
 );
-
-// ✅ REMOVED: /create-admin route - Only one admin via script
 
 // ===================== MAIN DASHBOARD =====================
 router.get("/dashboard", requireRole("admin"), (req, res) => {

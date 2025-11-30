@@ -1,18 +1,48 @@
+// utils/emailService.js - Using Gmail via Nodemailer
 const nodemailer = require('nodemailer');
 
-// Create email transporter using Gmail
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+// Email configuration
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS;
+
+// Create transporter
+let transporter = null;
+
+if (EMAIL_USER && EMAIL_PASS) {
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS, // Gmail App Password
+    },
+  });
+  console.log('✅ Gmail transporter configured');
+  console.log('📧 Email user:', EMAIL_USER);
+} else {
+  console.error('❌ EMAIL_USER or EMAIL_PASS not set in environment variables!');
+}
 
 // Send password reset email
 const sendPasswordResetEmail = async (userEmail, resetLink, userName) => {
+  console.log('\n📧 ========== EMAIL SERVICE DEBUG ==========');
+  console.log('📧 Attempting to send email...');
+  console.log('📧 To:', userEmail);
+  console.log('📧 From:', EMAIL_USER);
+  console.log('📧 User name:', userName);
+  console.log('📧 Reset link:', resetLink);
+  console.log('📧 Transporter ready:', !!transporter);
+
+  // Validation checks
+  if (!transporter) {
+    console.error('❌ Email transporter not configured!');
+    return { 
+      success: false, 
+      error: 'Email service not configured. Missing EMAIL_USER or EMAIL_PASS.' 
+    };
+  }
+
   const mailOptions = {
-    from: `"Enhancify.AI" <${process.env.EMAIL_USER}>`,
+    from: `"Enhancify.AI" <${EMAIL_USER}>`,
     to: userEmail,
     subject: '🔐 Password Reset Request - Enhancify.AI',
     html: `
@@ -54,7 +84,7 @@ const sendPasswordResetEmail = async (userEmail, resetLink, userName) => {
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetLink}" class="button">Reset Password</a>
             </div>
-            <p>Or copy this link: <br><code>${resetLink}</code></p>
+            <p>Or copy this link: <br><code style="background-color: #f3f4f6; padding: 8px; display: inline-block; border-radius: 4px; word-break: break-all;">${resetLink}</code></p>
             <div class="warning">
               <strong>⚠️ Important:</strong>
               <ul>
@@ -75,25 +105,70 @@ const sendPasswordResetEmail = async (userEmail, resetLink, userName) => {
   };
 
   try {
+    console.log('📤 Sending email via Gmail...');
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Password reset email sent to:', userEmail);
-    return { success: true, messageId: info.messageId };
+    console.log('✅ Email sent successfully!');
+    console.log('✅ Message ID:', info.messageId);
+    console.log('✅ To:', userEmail);
+    console.log('========================================\n');
+    return { success: true };
   } catch (error) {
-    console.error('❌ Email failed:', error.message);
-    return { success: false, error: error.message };
+    console.error('❌ ========== EMAIL SEND FAILED ==========');
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Full error:', error);
+    console.error('========================================\n');
+    
+    // Return user-friendly error messages
+    let userMessage = 'Failed to send reset email. Please try again later.';
+    
+    if (error.code === 'EAUTH') {
+      userMessage = 'Email authentication failed. Please contact support.';
+    } else if (error.code === 'ECONNECTION') {
+      userMessage = 'Could not connect to email service. Please try again.';
+    }
+    
+    return { 
+      success: false, 
+      error: userMessage,
+      technicalError: process.env.NODE_ENV === 'development' ? error.message : undefined
+    };
   }
 };
 
-// Verify email configuration
+// Verify email configuration on startup
 const verifyEmailConfig = async () => {
-  try {
-    await transporter.verify();
-    console.log('✅ Email service ready');
-    return true;
-  } catch (error) {
-    console.error('❌ Email config error:', error.message);
+  console.log('\n🔍 ========== EMAIL CONFIG CHECK ==========');
+  
+  if (!EMAIL_USER) {
+    console.error('❌ EMAIL_USER not set in environment variables');
+    console.error('========================================\n');
     return false;
   }
+  
+  if (!EMAIL_PASS) {
+    console.error('❌ EMAIL_PASS not set in environment variables');
+    console.error('========================================\n');
+    return false;
+  }
+  
+  console.log('✅ EMAIL_USER:', EMAIL_USER);
+  console.log('✅ EMAIL_PASS: Set (length:', EMAIL_PASS.length, ')');
+  console.log('✅ Gmail email service configured');
+  
+  // Optional: Test connection
+  if (transporter) {
+    try {
+      await transporter.verify();
+      console.log('✅ Gmail connection verified successfully!');
+    } catch (error) {
+      console.error('❌ Gmail connection failed:', error.message);
+      console.error('⚠️  Check your EMAIL_USER and EMAIL_PASS');
+    }
+  }
+  
+  console.log('========================================\n');
+  return true;
 };
 
 module.exports = {

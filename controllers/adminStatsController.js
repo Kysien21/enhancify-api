@@ -5,16 +5,13 @@ const bcrypt = require('bcrypt');
 // ===================== OVERVIEW / HOME =====================
 exports.getOverviewStats = async (req, res) => {
   try {
-    // Count only non-admin active users
     const totalUsers = await User.countDocuments({ 
       role: { $ne: 'admin' }, 
       isActive: true 
     });
     
-    // ✅ Count total optimized resumes (changed key to match frontend)
     const totalResumes = await ResumeOptimizeResult.countDocuments();
     
-    // ✅ Calculate average ATS score from enhanced resumes
     const scoreStats = await ResumeOptimizeResult.aggregate([
       {
         $group: {
@@ -34,7 +31,7 @@ exports.getOverviewStats = async (req, res) => {
       success: true,
       data: {
         totalUsers,
-        totalResumes, // ✅ Changed from totalOptimizedResumes to match frontend
+        totalResumes,
         averageMatchScore
       }
     });
@@ -50,7 +47,6 @@ exports.getOverviewStats = async (req, res) => {
 
 exports.getSystemActivityGraph = async (req, res) => {
   try {
-    // Get monthly activity data from ResumeOptimizeResult
     const monthlyData = await ResumeOptimizeResult.aggregate([
       {
         $group: {
@@ -61,10 +57,7 @@ exports.getSystemActivityGraph = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
     
-    // Initialize array with 12 months
     const result = Array(12).fill(0);
-    
-    // Fill in the actual data
     monthlyData.forEach(item => {
       result[item._id - 1] = item.count;
     });
@@ -91,7 +84,6 @@ exports.getRecentAnalyses = async (req, res) => {
       .limit(10)
       .lean();
     
-    // Format the data
     const formatted = recentAnalyses.map(analysis => ({
       _id: analysis._id,
       userName: analysis.userId ? 
@@ -122,7 +114,6 @@ exports.getReportsAnalytics = async (req, res) => {
   try {
     const totalAnalysis = await ResumeOptimizeResult.countDocuments();
     
-    // Calculate average improvement
     const improvementStats = await ResumeOptimizeResult.aggregate([
       {
         $project: {
@@ -197,6 +188,85 @@ exports.getSystemUsageOverTime = async (req, res) => {
   }
 };
 
+// ✅ NEW: Get Department Statistics
+exports.getDepartmentStats = async (req, res) => {
+  try {
+    console.log("📊 Fetching department statistics...");
+
+    // ✅ Map category names to department codes
+    const categoryToDepartment = {
+      'Information Technology': 'CIT',
+      'Engineering': 'CIT',
+      'Business Administration': 'CBA',
+      'Education': 'CTE',
+      'Arts and Sciences': 'CAS',
+      'Criminal Justice': 'CCJE',
+      'Healthcare': 'CAS',
+      'Marketing': 'CBA',
+      'Finance': 'CBA',
+      'Human Resources': 'CBA',
+      'Sales': 'CBA',
+      'Customer Service': 'CAS',
+      'Other': 'CAS',
+      // Also handle if someone directly used dept codes
+      'CIT': 'CIT',
+      'CBA': 'CBA',
+      'CTE': 'CTE',
+      'CAS': 'CAS',
+      'CCJE': 'CCJE'
+    };
+
+    // Get all users with their categories
+    const users = await User.find({ 
+      role: 'user',
+      isActive: true 
+    }).select('category');
+
+    // Initialize department counts
+    const departmentCounts = {
+      'CIT': 0,
+      'CBA': 0,
+      'CTE': 0,
+      'CAS': 0,
+      'CCJE': 0
+    };
+
+    // Count users by department
+    users.forEach(user => {
+      if (user.category) {
+        // Map the category to department
+        const dept = categoryToDepartment[user.category] || user.category;
+        
+        if (departmentCounts.hasOwnProperty(dept)) {
+          departmentCounts[dept]++;
+        }
+      }
+    });
+
+    // Convert to array in correct order
+    const departmentData = [
+      departmentCounts['CIT'],
+      departmentCounts['CBA'],
+      departmentCounts['CTE'],
+      departmentCounts['CAS'],
+      departmentCounts['CCJE']
+    ];
+
+    console.log("📊 Department Stats:", departmentData);
+
+    res.json({
+      success: true,
+      data: departmentData
+    });
+  } catch (error) {
+    console.error("❌ Error fetching department stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch department statistics"
+    });
+  }
+};
+
 exports.getMonthlyStats = async (req, res) => {
   try {
     const currentMonth = new Date().getMonth() + 1;
@@ -244,7 +314,6 @@ exports.getUsersList = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     
-    // Get analysis count for each user
     const usersWithAnalysis = await Promise.all(
       users.map(async (user) => {
         const analysisCount = await ResumeOptimizeResult.countDocuments({ 
@@ -324,10 +393,7 @@ exports.deleteUser = async (req, res) => {
       });
     }
     
-    // ✅ Permanently delete the user
     await User.findByIdAndDelete(userId);
-    
-    // ✅ Also delete all their resume optimization results
     await ResumeOptimizeResult.deleteMany({ userId });
     
     console.log(`✅ User deleted: ${user.Email_Address}`);
@@ -366,7 +432,6 @@ exports.toggleUserStatus = async (req, res) => {
       });
     }
     
-    // ✅ Toggle isActive status
     user.isActive = !user.isActive;
     await user.save();
     
@@ -444,5 +509,3 @@ exports.changeAdminPassword = async (req, res) => {
     });
   }
 };
-
-// ✅ REMOVED: createAdmin function - only one admin exists via script

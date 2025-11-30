@@ -168,36 +168,36 @@ const signup = async (req, res) => {
   const {
     First_name,
     Last_name,
-    Category, // ✅ Frontend sends capitalized "Category"
+    Category,
     Email_Address,
     Password,
     Confirm_Password,
     agreeToTerms,
   } = req.body;
   
-  // ✅ Convert to lowercase for database
   let category = Category;
   
   console.log("🔍 Raw Category from frontend:", `"${Category}"`);
   console.log("🔍 Category length:", Category?.length);
   console.log("🔍 Category type:", typeof Category);
   
-  // ✅ Category mapping - convert frontend values to backend format
+  // ✅ Updated Category mapping to match frontend select options
   const categoryMapping = {
-    'technology': 'Information Technology',
-    'information technology': 'Information Technology',
-    'engineering': 'Engineering',
-    'business': 'Business Administration',
-    'business administration': 'Business Administration',
-    'healthcare': 'Healthcare',
-    'education': 'Education',
-    'marketing': 'Marketing',
-    'finance': 'Finance',
-    'hr': 'Human Resources',
-    'human resources': 'Human Resources',
-    'sales': 'Sales',
-    'customer service': 'Customer Service',
-    'other': 'Other'
+    'technology': 'CIT',
+    'health': 'CBA',
+    'finance': 'CTE',
+    'education': 'CAS',
+    // Note: 'education' maps to both CTE and CAS in frontend, keeping CAS as default
+    'cit': 'CIT',
+    'cba': 'CBA',
+    'cte': 'CTE',
+    'cas': 'CAS',
+    'ccje': 'CCJE',
+    'information technology': 'CIT',
+    'business administration': 'CBA',
+    'teacher education': 'CTE',
+    'arts and sciences': 'CAS',
+    'criminal justice education': 'CCJE'
   };
   
   // ✅ Normalize category - trim and convert to lowercase for matching
@@ -208,7 +208,7 @@ const signup = async (req, res) => {
   
   console.log("🔍 Mapped category:", `"${category}"`);
 
-  // ✅ Updated validation - no Mobile_No, added category
+  // ✅ Updated validation
   if (
     !First_name ||
     !Last_name ||
@@ -223,22 +223,9 @@ const signup = async (req, res) => {
     });
   }
 
-  // ✅ Validate category (only for regular users)
-  const validCategories = [
-    'Information Technology',
-    'Engineering',
-    'Business Administration',
-    'Healthcare',
-    'Education',
-    'Marketing',
-    'Finance',
-    'Human Resources',
-    'Sales',
-    'Customer Service',
-    'Other'
-  ];
+  // ✅ Validate category
+  const validCategories = ['CIT', 'CBA', 'CTE', 'CAS', 'CCJE'];
 
-  // Category is required for non-admin signups
   if (!category || category.trim() === '') {
     console.log("❌ Category is missing or empty");
     return res.status(400).json({ 
@@ -265,7 +252,7 @@ const signup = async (req, res) => {
   }
 
   // ✅ Password strength validation
-  if (Password.length < 10) { // ✅ Match frontend's 10 character requirement
+  if (Password.length < 10) {
     return res.status(400).json({ 
       success: false,
       message: "Password must be at least 10 characters long" 
@@ -285,11 +272,11 @@ const signup = async (req, res) => {
     
     console.log("👤 Creating new user:", First_name, Last_name, "- Category:", category);
     
-    // ✅ Create user with category instead of Mobile_No
+    // ✅ Create user with category
     const user = new User({
       First_name,
       Last_name,
-      category: category, // ✅ Use mapped category
+      category: category,
       Email_Address,
       Password: hashedPassword,
       isActive: true,
@@ -317,7 +304,6 @@ const signup = async (req, res) => {
     });
   }
 };
-
 // ==================== FORGOT PASSWORD ====================
 /**
  * ✅ UPDATED: No longer requires mobile number
