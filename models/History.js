@@ -14,7 +14,6 @@ const historySchema = new Schema({
     overallScore: Number,
     jobMatchScore: Number,
     
-    // ✅ REMOVED: category field
     timestamp: { type: Date, default: Date.now }
 });
 

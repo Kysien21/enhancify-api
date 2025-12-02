@@ -163,8 +163,11 @@ app.use(`${BASE_URL}admin`, adminRoute);
 const passwordRoute = require("./routes/password");
 app.use("/api/v1/auth", passwordRoute);
 
+const { startCleanupScheduler } = require('./utils/cleanupScheduler');
+
 // ✅ Middleware
 const { requireAuth } = require("./middleware/authMiddleware");
+
 
 // ✅ Core functionality routes
 const uploadRoute = require("./routes/Upload");
@@ -227,6 +230,7 @@ app.use((err, req, res, next) => {
   });
 });
 
+
 // ✅ MongoDB connection
 const dbURI = process.env.MONGO_URI;
 
@@ -239,6 +243,10 @@ mongoose
   })
   .then(() => {
     console.log("✅ Connected to MongoDB");
+
+    // ✅ Start the auto-cleanup scheduler
+    startCleanupScheduler();
+
     app.listen(PORT, () => {
       console.log("═══════════════════════════════════");
       console.log(`✅ Server running on port ${PORT}`);

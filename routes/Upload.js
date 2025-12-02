@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const uploadcontroller = require('../controllers/uploadController')
+const uploadRateLimiter = require('../middleware/uploadRateLimiter');
 
 const router = express.Router();
 
@@ -40,6 +41,12 @@ const upload = multer({
     storage: storage,
     fileFilter: fileFilter
 });
+
+router.post('/upload', 
+    uploadRateLimiter,  // Check limit first
+    upload.single('resume'), 
+    uploadcontroller.uploadResume
+);
 
 router.post('/upload', upload.single('resume'), uploadcontroller.uploadResume)
 
