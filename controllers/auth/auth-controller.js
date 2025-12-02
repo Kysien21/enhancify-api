@@ -183,22 +183,23 @@ const signup = async (req, res) => {
   
   // ✅ Updated Category mapping to match frontend select options
   const categoryMapping = {
-    'technology': 'CIT',
-    'health': 'CBA',
-    'finance': 'CTE',
-    'education': 'CAS',
-    // Note: 'education' maps to both CTE and CAS in frontend, keeping CAS as default
-    'cit': 'CIT',
-    'cba': 'CBA',
-    'cte': 'CTE',
-    'cas': 'CAS',
-    'ccje': 'CCJE',
-    'information technology': 'CIT',
-    'business administration': 'CBA',
-    'teacher education': 'CTE',
-    'arts and sciences': 'CAS',
-    'criminal justice education': 'CCJE'
-  };
+  'technology': 'CIT',
+  'health': 'CBA',
+  'finance': 'CTE',
+  'education': 'CAS',
+  'cit': 'CIT',
+  'cba': 'CBA',
+  'cte': 'CTE',
+  'cas': 'CAS',
+  'ccje': 'CCJE',
+  'hm': 'HM', 
+  'information technology': 'CIT',
+  'business administration': 'CBA',
+  'teacher education': 'CTE',
+  'arts and sciences': 'CAS',
+  'criminal justice education': 'CCJE',
+  'hospitality management': 'HM' 
+};
   
   // ✅ Normalize category - trim and convert to lowercase for matching
   if (category) {
@@ -224,7 +225,7 @@ const signup = async (req, res) => {
   }
 
   // ✅ Validate category
-  const validCategories = ['CIT', 'CBA', 'CTE', 'CAS', 'CCJE'];
+  const validCategories = ['CIT', 'CBA', 'CTE', 'CAS', 'CCJE', 'HM'];
 
   if (!category || category.trim() === '') {
     console.log("❌ Category is missing or empty");

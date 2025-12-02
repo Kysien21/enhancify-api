@@ -1,6 +1,6 @@
 exports.requireAuth = async (req, res, next) => {
   console.log("Session User:", req.session.user);
-  
+
   if (!req.session.user) {
     return res.status(401).json({
       success: false,
@@ -11,9 +11,9 @@ exports.requireAuth = async (req, res, next) => {
 
   // ✅ Check if user is still active (not blocked)
   try {
-    const User = require('../models/User');
+    const User = require("../models/User");
     const user = await User.findById(req.session.user._id);
-    
+
     if (!user || !user.isActive) {
       // Destroy session if user is blocked
       req.session.destroy();
@@ -41,9 +41,9 @@ exports.requireRole = (role) => {
 
     // ✅ Check if user is still active
     try {
-      const User = require('../models/User');
+      const User = require("../models/User");
       const user = await User.findById(req.session.user._id);
-      
+
       if (!user || !user.isActive) {
         req.session.destroy();
         return res.status(403).json({

@@ -228,7 +228,8 @@ exports.getDepartmentStats = async (req, res) => {
       'CBA': 0,
       'CTE': 0,
       'CAS': 0,
-      'CCJE': 0
+      'CCJE': 0,
+      'HM': 0
     };
 
     // Count users by department
@@ -249,7 +250,8 @@ exports.getDepartmentStats = async (req, res) => {
       departmentCounts['CBA'],
       departmentCounts['CTE'],
       departmentCounts['CAS'],
-      departmentCounts['CCJE']
+      departmentCounts['CCJE'],
+      departmentCounts['HM']
     ];
 
     console.log("📊 Department Stats:", departmentData);
@@ -505,6 +507,61 @@ exports.changeAdminPassword = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to change password',
+      error: error.message
+    });
+  }
+};
+
+exports.getTokenUsageGraph = async (req, res) => {
+  try {
+    const TOKENS_PER_ANALYSIS = 5000; // Average tokens per resume analysis
+    
+    // Get current month data
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+    
+    // Get daily token usage for current month
+    const dailyData = await ResumeOptimizeResult.aggregate([
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: [{ $month: "$createdAt" }, currentMonth] },
+              { $eq: [{ $year: "$createdAt" }, currentYear] }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $dayOfMonth: "$createdAt" },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    
+    // Get number of days in current month
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const result = Array(daysInMonth).fill(0);
+    
+    // Calculate tokens per day
+    dailyData.forEach(item => {
+      result[item._id - 1] = item.count * TOKENS_PER_ANALYSIS;
+    });
+    
+    res.json({
+      success: true,
+      data: result,
+      month: new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long' }),
+      year: currentYear,
+      tokensPerAnalysis: TOKENS_PER_ANALYSIS
+    });
+  } catch (error) {
+    console.error('Error fetching token usage graph:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch token usage graph',
       error: error.message
     });
   }

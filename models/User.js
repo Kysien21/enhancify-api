@@ -15,15 +15,16 @@ const userSchema = new Schema({
   // ✅ UPDATED: Category/Department field with correct enum values
   category: {
     type: String,
-    required: function() {
-      return this.role !== 'admin'; // Only required for non-admin users
+    required: function () {
+      return this.role !== "admin"; // Only required for non-admin users
     },
     enum: [
-      'CIT',   // College of Information Technology
-      'CBA',   // College of Business Administration
-      'CTE',   // College of Teacher Education
-      'CAS',   // College of Arts and Sciences
-      'CCJE'   // College of Criminal Justice Education
+      "CIT", // College of Information Technology
+      "CBA", // College of Business Administration
+      "CTE", // College of Teacher Education
+      "CAS", // College of Arts and Sciences
+      "CCJE", // College of Criminal Justice Education
+      "HM", // Hospitality Management
     ],
     trim: true,
   },

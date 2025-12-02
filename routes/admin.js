@@ -43,6 +43,13 @@ router.get(
   adminStatsController.getSystemUsageOverTime
 );
 
+// ✅ NEW: Token usage endpoint
+router.get(
+  "/reports/token-usage",
+  requireRole("admin"),
+  adminStatsController.getTokenUsageGraph
+);
+
 // ✅ NEW: Department statistics endpoint
 router.get(
   "/reports/department-stats",
@@ -92,5 +99,6 @@ router.get("/dashboard", requireRole("admin"), (req, res) => {
     },
   });
 });
+
 
 module.exports = router;
