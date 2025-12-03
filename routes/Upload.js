@@ -6,22 +6,11 @@ const uploadRateLimiter = require('../middleware/uploadRateLimiter');
 
 const router = express.Router();
 
-
-// const storage = multer.diskStorage({
-//     destination: function(req, file, cb) {
-//         cb(null, 'uploads')
-//     },
-//     filename: function(req, file, cb) {
-//         cb(null, Date.now() + '-' + file.originalname)
-//     }
-// });
-
 const storage = multer.memoryStorage();
 
-// ✅ File filter para PDF ug DOCX ra
+// ✅ File filter para DOCX ra
 const fileFilter = function(req, file, cb) {
     const allowedMimeTypes = [
-        "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ];
 
@@ -48,7 +37,7 @@ router.post('/upload',
     uploadcontroller.uploadResume
 );
 
-router.post('/upload', upload.single('resume'), uploadcontroller.uploadResume)
+// router.post('/upload', upload.single('resume'), uploadcontroller.uploadResume)
 
 
 module.exports = router;

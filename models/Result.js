@@ -6,7 +6,7 @@ const resultSchema = new Schema({
     resumeText: { type: String, required: true },
     optimizedResume: { type: String, required: false },
     jobDescription: { type: String, required: false },
-    // ✅ REMOVED: category field
+
     
     // Scoring fields
     overallScore: { type: Number, required: true },
