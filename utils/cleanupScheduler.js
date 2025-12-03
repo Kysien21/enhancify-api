@@ -2,29 +2,25 @@ const cron = require('node-cron');
 const History = require('../models/History');
 
 /**
- * Delete history records older than 30 days
+ * Delete ALL history records (complete reset every 24 hours)
  */
 const deleteOldHistory = async () => {
   try {
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
-
     console.log('🗑️  Running history cleanup...');
-    console.log('🗓️  Deleting records older than:', oneMonthAgo.toLocaleDateString());
+    console.log('🗓️  Deleting ALL history records for complete reset');
 
-    const result = await History.deleteMany({
-      createdAt: { $lt: oneMonthAgo }
-    });
+    // Delete ALL history records (complete reset)
+    const result = await History.deleteMany({});
 
-    console.log(`✅ Deleted ${result.deletedCount} old history records`);
+    console.log(`✅ Deleted ${result.deletedCount} history records (Complete Reset)`);
     
     return {
       success: true,
       deletedCount: result.deletedCount,
-      olderThan: oneMonthAgo
+      resetType: 'complete'
     };
   } catch (error) {
-    console.error('❌ Error deleting old history:', error);
+    console.error('❌ Error deleting history:', error);
     return {
       success: false,
       error: error.message
@@ -34,16 +30,17 @@ const deleteOldHistory = async () => {
 
 /**
  * Start the cleanup scheduler
- * Runs on the 1st day of every month at 2:00 AM
+ * Runs every 24 hours at 2:00 AM
  */
 const startCleanupScheduler = () => {
-  // Run on the 1st of every month at 2:00 AM
-  cron.schedule('0 2 1 * *', async () => {
-    console.log('\n🔄 Starting monthly history cleanup...');
+  // Run every day at 2:00 AM (every 24 hours)
+  cron.schedule('0 2 * * *', async () => {
+    console.log('\n🔄 Starting daily history reset...');
     await deleteOldHistory();
   });
 
-  console.log('✅ History cleanup scheduler started (runs monthly on the 1st at 2:00 AM)');
+  console.log('✅ History cleanup scheduler started (runs every 24 hours at 2:00 AM)');
+  
 };
 
 module.exports = {
