@@ -25,7 +25,7 @@ exports.uploadResume = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "File size exceeds 1 MB limit. Please upload a smaller resume (PDF or DOCX).",
+          "File size exceeds 1 MB limit. Please upload a smaller resume.",
       });
     }
 
@@ -60,7 +60,7 @@ exports.uploadResume = async (req, res) => {
     else if (file.mimetype === "application/msword") {
       return res.status(400).json({
         success: false,
-        message: "DOC format not supported. Use PDF or DOCX.",
+        message: "DOC format not supported. Use DOCX.",
       });
     }
 
