@@ -8,6 +8,10 @@ const resumeOptimizeResultSchema = new Schema(
       ref: "User",
       required: true,
     },
+     originalResumeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ExtractedResume"
+    },
     originalResume: {
       contact: {
         name: String,

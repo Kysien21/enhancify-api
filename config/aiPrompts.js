@@ -13,6 +13,7 @@ const AI_CONFIG = {
 /**
  * This is the ONLY prompt used in the system
  * It analyzes the resume and creates an optimized version
+ * ✅ BOTH resumeText and jobDescription are REQUIRED
  */
 const RESUME_OPTIMIZATION_PROMPT = (resumeText, jobDescription) => `
 <RESUME_TEXT_VERSION>
@@ -26,8 +27,8 @@ ${jobDescription}
 You are an expert ATS (Applicant Tracking System) resume optimizer. Your task is to analyze the provided resume text and create an enhanced, ATS-optimized version using ONLY the information explicitly present in the original text.
 
 INPUT HANDLING:
-- If a job description is provided: Align the resume content to match the job requirements by emphasizing relevant skills, experiences, and keywords from the job posting
-- If no job description is provided: Perform general optimization to maximize ATS compatibility across various roles
+- ✅ A job description is ALWAYS provided
+- Align the resume content to match the job requirements by emphasizing relevant skills, experiences, and keywords from the job posting
 
 🚨 CRITICAL RULES - NEVER VIOLATE:
 - Work ONLY with the text that has been scanned/extracted from the resume

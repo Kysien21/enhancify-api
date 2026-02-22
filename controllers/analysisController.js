@@ -12,83 +12,79 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-/**
- * ✅ Normalize certifications - remove if empty or placeholder
- */
 const normalizeCertifications = (certifications) => {
   if (!certifications) return "";
-  
-  // If it's an array, join with bullet points
+
   if (Array.isArray(certifications)) {
-    const filtered = certifications.filter(cert => 
-      cert && 
-      cert.trim() !== "" && 
-      !cert.toLowerCase().includes("n/a") &&
-      !cert.toLowerCase().includes("none") &&
-      !cert.toLowerCase().includes("to be added")
+    const filtered = certifications.filter(
+      (cert) =>
+        cert &&
+        cert.trim() !== "" &&
+        !cert.toLowerCase().includes("n/a") &&
+        !cert.toLowerCase().includes("none") &&
+        !cert.toLowerCase().includes("to be added"),
     );
     return filtered.length > 0 ? filtered.join(" • ") : "";
   }
-  
-  // If it's a string, check if it's a placeholder
+
   const certStr = certifications.toString().trim();
-  const placeholders = ["n/a", "none", "to be added", "placeholder", "null", "undefined"];
-  
-  if (placeholders.some(p => certStr.toLowerCase().includes(p))) {
+  const placeholders = [
+    "n/a",
+    "none",
+    "to be added",
+    "placeholder",
+    "null",
+    "undefined",
+  ];
+
+  if (placeholders.some((p) => certStr.toLowerCase().includes(p))) {
     return "";
   }
-  
+
   return certStr || "";
 };
 
-/**
- * ✅ Clean LinkedIn URL - remove if placeholder
- */
 const normalizeLinkedIn = (linkedin) => {
   if (!linkedin) return "";
-  
+
   const linkedinStr = linkedin.toString().trim().toLowerCase();
   const placeholders = ["n/a", "none", "to be added", "placeholder", "null"];
-  
-  if (placeholders.some(p => linkedinStr.includes(p)) || linkedinStr === "") {
+
+  if (placeholders.some((p) => linkedinStr.includes(p)) || linkedinStr === "") {
     return "";
   }
-  
+
   return linkedin;
 };
 
-/**
- * Analyze and optimize resume
- * This is the main function that processes the uploaded resume
- * ✅ Job description is now OPTIONAL
- */
 exports.analyzeResumeInitial = async (req, res) => {
-  const { resumeText, jobDescription } = req.body;
+  const { resumeText, jobDescription, resumeId } = req.body;
 
-  // ✅ Validate required fields - only resumeText is required now
   if (!resumeText) {
-    return res.status(400).json({ 
-      message: "Resume text is required." 
+    return res.status(400).json({
+      message: "Resume text is required.",
     });
   }
 
-  // Check user session
+  if (!jobDescription || jobDescription.trim() === "") {
+    return res.status(400).json({
+      message: "Job description is required.",
+    });
+  }
+
   if (!req.session.user) {
     return res.status(401).json({ message: "Not authenticated." });
   }
 
   try {
-    // ✅ Get the prompt with resume and optional job description
     const prompt = RESUME_OPTIMIZATION_PROMPT(
-      resumeText, 
-      jobDescription || "" // Pass empty string if no job description
+      resumeText,
+      jobDescription.trim(),
     );
 
     console.log("🧠 Calling Claude API for resume analysis and optimization...");
     console.log("👤 User:", req.session.user.email);
-    console.log("📝 Job Description:", jobDescription ? "Provided" : "Not provided (general optimization)");
 
-    // Call Claude AI API
     const response = await anthropic.messages.create({
       model: AI_CONFIG.model,
       max_tokens: AI_CONFIG.initialAnalysis.maxTokens,
@@ -106,45 +102,55 @@ exports.analyzeResumeInitial = async (req, res) => {
       ],
     });
 
-    // Log token usage
     if (response.usage) {
       console.log("📊 Claude Token Usage:");
       console.log(" - Input Tokens:", response.usage.input_tokens);
       console.log(" - Output Tokens:", response.usage.output_tokens);
-      console.log(" - Total Cost: ~$", ((response.usage.input_tokens * 0.003 + response.usage.output_tokens * 0.015) / 1000).toFixed(4));
+      console.log(
+        " - Total Cost: ~$",
+        (
+          (response.usage.input_tokens * 0.003 +
+            response.usage.output_tokens * 0.015) /
+          1000
+        ).toFixed(4),
+      );
     }
 
-    // Extract and clean the response
     const resultText = response.content[0].text;
     const sanitized = resultText
       .replace(/```json\s*/gi, "")
       .replace(/```\s*/g, "")
       .trim();
 
-    // Parse JSON response
     let parsedResult;
     try {
       parsedResult = JSON.parse(sanitized);
       console.log("✅ Successfully parsed JSON response");
-      console.log("📈 ATS Score - Original:", parsedResult.atsScore?.original, "Enhanced:", parsedResult.atsScore?.enhanced);
-      
-      // ✅ CRITICAL: Clean up certifications and LinkedIn
+      console.log(
+        "📈 ATS Score - Original:",
+        parsedResult.atsScore?.original,
+        "Enhanced:",
+        parsedResult.atsScore?.enhanced,
+      );
+
       if (parsedResult.enhancedResume) {
         parsedResult.enhancedResume.certifications = normalizeCertifications(
-          parsedResult.enhancedResume.certifications
+          parsedResult.enhancedResume.certifications,
         );
-        
+
         if (parsedResult.enhancedResume.contact) {
           parsedResult.enhancedResume.contact.linkedin = normalizeLinkedIn(
-            parsedResult.enhancedResume.contact.linkedin
+            parsedResult.enhancedResume.contact.linkedin,
           );
         }
-        
-        console.log("🔍 Certifications after normalization:", 
-          parsedResult.enhancedResume.certifications === "" ? "NONE (empty string)" : parsedResult.enhancedResume.certifications
+
+        console.log(
+          "🔍 Certifications after normalization:",
+          parsedResult.enhancedResume.certifications === ""
+            ? "NONE (empty string)"
+            : parsedResult.enhancedResume.certifications,
         );
       }
-      
     } catch (error) {
       console.error("❌ JSON Parse Error:", error.message);
       console.error("📄 Raw response:", sanitized.substring(0, 500));
@@ -154,79 +160,88 @@ exports.analyzeResumeInitial = async (req, res) => {
       });
     }
 
-    // Save result to database
     const savedResult = await ResumeOptimizeResult.create({
       ...parsedResult,
       userId: req.session.user._id,
+      originalResumeId: resumeId,
     });
 
     console.log("💾 Result saved to database with ID:", savedResult._id);
 
-    // Send success response
+    const baseUrl =
+      process.env.NODE_ENV === "production"
+        ? process.env.API_URL
+        : `http://localhost:${process.env.PORT || 3000}`;
+
+    // ✅ FIX: Merge PDF URLs into the analysis object so the frontend
+    // can access them via analysisData.originalResume.fileUrl
+    // and analysisData.enhancedResume.optimizedPdfUrl
+    const analysisWithUrls = {
+      ...parsedResult,
+      originalResume: {
+        ...parsedResult.originalResume,
+        fileUrl: `${baseUrl}/api/original-pdf/${resumeId}`,
+      },
+      enhancedResume: {
+        ...parsedResult.enhancedResume,
+        optimizedPdfUrl: `${baseUrl}/api/download/${savedResult._id}`,
+      },
+    };
+
     return res.status(200).json({
       success: true,
-      message: jobDescription 
-        ? "✅ Resume analyzed and optimized for job posting" 
-        : "✅ Resume analyzed and optimized (general)",
-      analysis: parsedResult,
+      message: "✅ Resume analyzed and optimized for job posting",
+      analysis: analysisWithUrls,
       resultId: savedResult._id,
     });
-
   } catch (error) {
     console.error("❌ Analysis Error:", error.message);
-    
-    // Handle specific API errors
+
     if (error.status === 429) {
-      return res.status(429).json({ 
+      return res.status(429).json({
         message: "Rate limit exceeded. Please try again in a moment.",
-        error: "Too many requests" 
-      });
-    }
-    
-    if (error.status === 401) {
-      return res.status(500).json({ 
-        message: "API authentication failed. Please check your API key.",
-        error: "Invalid API key" 
+        error: "Too many requests",
       });
     }
 
-    res.status(500).json({ 
-      message: "Analysis failed", 
-      error: error.message 
+    if (error.status === 401) {
+      return res.status(500).json({
+        message: "API authentication failed. Please check your API key.",
+        error: "Invalid API key",
+      });
+    }
+
+    res.status(500).json({
+      message: "Analysis failed",
+      error: error.message,
     });
   }
 };
 
-/**
- * Optimize resume (Deprecated - kept for backward compatibility)
- * The optimization now happens in analyzeResumeInitial
- */
 exports.optimizeResume = async (req, res) => {
-  console.log("⚠️ optimizeResume endpoint called - This is now handled in analyzeResumeInitial");
-  
+  console.log(
+    "⚠️ optimizeResume endpoint called - This is now handled in analyzeResumeInitial",
+  );
+
   return res.status(400).json({
     success: false,
-    message: "This endpoint is deprecated. Resume optimization now happens during initial analysis.",
-    redirectTo: "/analyze-initial"
+    message:
+      "This endpoint is deprecated. Resume optimization now happens during initial analysis.",
+    redirectTo: "/analyze-initial",
   });
 };
 
-/**
- * Update optimized resume (Deprecated - kept for backward compatibility)
- */
 exports.updateOptimizedResume = async (req, res) => {
-  console.log("⚠️ updateOptimizedResume endpoint called - This endpoint is deprecated");
-  
+  console.log(
+    "⚠️ updateOptimizedResume endpoint called - This endpoint is deprecated",
+  );
+
   return res.status(400).json({
     success: false,
-    message: "This endpoint is deprecated."
+    message: "This endpoint is deprecated.",
   });
 };
 
-/**
- * Backward compatibility alias
- * Routes using /analyze will work the same as /analyze-initial
- */
 exports.analyzeResume = exports.analyzeResumeInitial;
 
 module.exports = exports;

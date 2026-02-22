@@ -175,12 +175,16 @@ const analysisRoute = require("./routes/analysis");
 const historyRoute = require("./routes/history");
 const resultRoute2 = require("./routes/result");
 const userProfileRoute = require("./routes/userProfile");
+const pdfRoutes = require('./routes/pdf');
+
 
 app.use("/api", requireAuth, uploadRoute);
 app.use("/api", requireAuth, analysisRoute);
 app.use("/api", requireAuth, historyRoute);
 app.use("/api", requireAuth, resultRoute2);
 app.use("/api", requireAuth, userProfileRoute);
+app.use('/api', requireAuth, pdfRoutes);
+
 
 // ✅ Health check endpoint
 app.get("/health", (req, res) => {

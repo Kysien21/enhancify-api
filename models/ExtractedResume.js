@@ -13,7 +13,17 @@ const extractedResumeSchema = new Schema({
     },
     jobDescription: { 
         type: String,
-        default: "" // ✅ Optional field with default empty string
+        required: true, // ✅ Changed from optional to required
+        trim: true
+    },
+    originalFile: {
+        type: String, // Path to stored PDF file
+        required: false
+    },
+    fileType: {
+        type: String,
+        enum: ['pdf'],
+        default: 'pdf'
     },
     createdAt: { 
         type: Date, 

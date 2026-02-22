@@ -8,27 +8,28 @@ const router = express.Router();
 
 const storage = multer.memoryStorage();
 
-// ✅ File filter para DOCX ra
+// ✅ File filter - PDF ONLY
 const fileFilter = function(req, file, cb) {
-    const allowedMimeTypes = [
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ];
-
-    const allowedExtensions = ['.pdf', '.docx'];
-    const extName = allowedExtensions.includes(path.extname(file.originalname).toLowerCase());
-    const mimeType = allowedMimeTypes.includes(file.mimetype);
+    const allowedMimeType = "application/pdf";
+    const allowedExtension = '.pdf';
+    
+    const extName = path.extname(file.originalname).toLowerCase() === allowedExtension;
+    const mimeType = file.mimetype === allowedMimeType;
 
     if (extName && mimeType) {
         cb(null, true);
     } else {
         console.log("❌ File rejected:", file.originalname, file.mimetype);
-        cb(new Error('Only .pdf and .docx files are allowed'), false);
+        cb(new Error('Only PDF files are allowed'), false);
     }
 };
 
 const upload = multer({
     storage: storage,
-    fileFilter: fileFilter
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    }
 });
 
 router.post('/upload', 
@@ -36,8 +37,5 @@ router.post('/upload',
     upload.single('resume'), 
     uploadcontroller.uploadResume
 );
-
-// router.post('/upload', upload.single('resume'), uploadcontroller.uploadResume)
-
 
 module.exports = router;
