@@ -1,34 +1,35 @@
 // ========================================
-// AI Configuration and Prompts
+// AI Configuration
 // ========================================
 
 const AI_CONFIG = {
-  model: "claude-sonnet-4-5-20250929",
+  model: "claude-sonnet-4-5-20250929", // Claude model to use
   initialAnalysis: {
-    maxTokens: 5000,
-    temperature: 0.7,
+    maxTokens: 5000,   // Maximum tokens Claude can return
+    temperature: 0.3,  // Lower = more consistent/predictable output
   },
 };
 
-/**
- * This is the ONLY prompt used in the system
- * It analyzes the resume and creates an optimized version
- * ✅ BOTH resumeText and jobDescription are REQUIRED
- */
-const RESUME_OPTIMIZATION_PROMPT = (resumeText, jobDescription) => `
-<RESUME_TEXT_VERSION>
-${resumeText}
-</RESUME_TEXT_VERSION>
+// ========================================
+// PART 1 — SYSTEM PROMPT (Instructions)
+// This tells Claude WHO it is and HOW to behave.
+// This is passed as the "system" parameter in the API call.
+// It never changes — same instructions every time.
+// ========================================
 
-<JOB_DESCRIPTION>
-${jobDescription}
-</JOB_DESCRIPTION>
+const SYSTEM_PROMPT = `You are an expert ATS (Applicant Tracking System) resume optimizer. Your task is to analyze the provided resume text and create an enhanced, ATS-optimized version using ONLY the information explicitly present in the original text.
 
-You are an expert ATS (Applicant Tracking System) resume optimizer. Your task is to analyze the provided resume text and create an enhanced, ATS-optimized version using ONLY the information explicitly present in the original text.
+INPUTS DESCRIPTION:
 
-INPUT HANDLING:
-- ✅ A job description is ALWAYS provided
-- Align the resume content to match the job requirements by emphasizing relevant skills, experiences, and keywords from the job posting
+Resume (Text Format)
+The candidate's full resume provided in plain text. This serves as the primary source of truth for experience, skills, education, certifications, and achievements. All revisions must be grounded strictly in this content.
+
+Job Description
+The target role description provided by the user. When available, use this to align the resume by emphasizing relevant qualifications, matching terminology, and reflecting key competencies required by the role. If absent, perform only general optimization without introducing role-specific tailoring.
+
+INPUT HANDLING GUIDELINES:
+✅ If a job description is provided, tailor the resume content to align with the stated requirements by highlighting relevant skills, experience, and keywords from the posting.
+❗ If no job description is provided, limit revisions to general improvements only and do not introduce role-specific assumptions or externally inferred details.
 
 🚨 CRITICAL RULES - NEVER VIOLATE:
 - Work ONLY with the text that has been scanned/extracted from the resume
@@ -85,13 +86,12 @@ Your response must be a valid JSON object with this exact structure:
         "responsibilities": ["string"]
       }
     ],
-    "originalResume": {
-  "education": [
-    {
-      "degree": "string - full degree title",
-      "institution": "string",
-      "period": "string"
-    }
+    "education": [
+      {
+        "degree": "string - full degree title",
+        "institution": "string",
+        "period": "string"
+      }
     ],
     "skills": ["string"],
     "languages": ["string"]
@@ -147,10 +147,32 @@ Your response must be a valid JSON object with this exact structure:
   }
 }
 
-🚨 RETURN ONLY VALID JSON - NO MARKDOWN, NO EXPLANATIONS, NO PREAMBLE
-`;
+🚨 RETURN ONLY VALID JSON - NO MARKDOWN, NO EXPLANATIONS, NO PREAMBLE`;
+
+// ========================================
+// PART 2 — INPUT PROMPT (Data only)
+// This tells Claude WHAT to process.
+// This is passed as the "messages" user content in the API call.
+// It changes every time — different resume and job description each call.
+// resumeText = extracted text from the uploaded PDF
+// jobDescription = job description typed by the user
+// ========================================
+
+const RESUME_OPTIMIZATION_PROMPT = (resumeText, jobDescription) => `
+<INPUT>
+  Resume in Text Form
+  ${resumeText}
+
+  Inputted Job Description
+  ${jobDescription}
+</INPUT>`;
+
+// ========================================
+// Export all three so analysisController.js can use them
+// ========================================
 
 module.exports = {
-  AI_CONFIG,
-  RESUME_OPTIMIZATION_PROMPT,
+  AI_CONFIG,           // model settings (model name, tokens, temperature)
+  SYSTEM_PROMPT,       // instructions for Claude (never changes)
+  RESUME_OPTIMIZATION_PROMPT, // user data for Claude (changes every request)
 };

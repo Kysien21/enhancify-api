@@ -5,12 +5,42 @@ const ResumeOptimizeResult = require("../models/ResumeOptmizeResult");
 
 const {
   AI_CONFIG,
+  SYSTEM_PROMPT,
   RESUME_OPTIMIZATION_PROMPT,
 } = require("../config/aiPrompts");
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+// ✅ Reusable claudeCall function — same pattern as reference project
+const claudeCall = async (
+  prompt,
+  systemPrompt = SYSTEM_PROMPT,
+  model = AI_CONFIG.model,
+  max_tokens = AI_CONFIG.initialAnalysis.maxTokens,
+  temperature = AI_CONFIG.initialAnalysis.temperature
+) => {
+  const response = await anthropic.messages.create({
+    model,
+    max_tokens,
+    temperature,
+    system: systemPrompt,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: prompt,
+          },
+        ],
+      },
+    ],
+  });
+
+  return response.content[0].text;
+};
 
 const normalizeCertifications = (certifications) => {
   if (!certifications) return "";
@@ -50,7 +80,10 @@ const normalizeLinkedIn = (linkedin) => {
   const linkedinStr = linkedin.toString().trim().toLowerCase();
   const placeholders = ["n/a", "none", "to be added", "placeholder", "null"];
 
-  if (placeholders.some((p) => linkedinStr.includes(p)) || linkedinStr === "") {
+  if (
+    placeholders.some((p) => linkedinStr.includes(p)) ||
+    linkedinStr === ""
+  ) {
     return "";
   }
 
@@ -61,15 +94,11 @@ exports.analyzeResumeInitial = async (req, res) => {
   const { resumeText, jobDescription, resumeId } = req.body;
 
   if (!resumeText) {
-    return res.status(400).json({
-      message: "Resume text is required.",
-    });
+    return res.status(400).json({ message: "Resume text is required." });
   }
 
   if (!jobDescription || jobDescription.trim() === "") {
-    return res.status(400).json({
-      message: "Job description is required.",
-    });
+    return res.status(400).json({ message: "Job description is required." });
   }
 
   if (!req.session.user) {
@@ -77,46 +106,14 @@ exports.analyzeResumeInitial = async (req, res) => {
   }
 
   try {
-    const prompt = RESUME_OPTIMIZATION_PROMPT(
-      resumeText,
-      jobDescription.trim(),
-    );
-
     console.log("🧠 Calling Claude API for resume analysis and optimization...");
     console.log("👤 User:", req.session.user.email);
 
-    const response = await anthropic.messages.create({
-      model: AI_CONFIG.model,
-      max_tokens: AI_CONFIG.initialAnalysis.maxTokens,
-      temperature: AI_CONFIG.initialAnalysis.temperature,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    });
+    // ✅ claudeCall with system as default, only passing the input prompt
+    const resultText = await claudeCall(
+      RESUME_OPTIMIZATION_PROMPT(resumeText, jobDescription.trim())
+    );
 
-    if (response.usage) {
-      console.log("📊 Claude Token Usage:");
-      console.log(" - Input Tokens:", response.usage.input_tokens);
-      console.log(" - Output Tokens:", response.usage.output_tokens);
-      console.log(
-        " - Total Cost: ~$",
-        (
-          (response.usage.input_tokens * 0.003 +
-            response.usage.output_tokens * 0.015) /
-          1000
-        ).toFixed(4),
-      );
-    }
-
-    const resultText = response.content[0].text;
     const sanitized = resultText
       .replace(/```json\s*/gi, "")
       .replace(/```\s*/g, "")
@@ -173,9 +170,6 @@ exports.analyzeResumeInitial = async (req, res) => {
         ? process.env.API_URL
         : `http://localhost:${process.env.PORT || 3000}`;
 
-    // ✅ FIX: Merge PDF URLs into the analysis object so the frontend
-    // can access them via analysisData.originalResume.fileUrl
-    // and analysisData.enhancedResume.optimizedPdfUrl
     const analysisWithUrls = {
       ...parsedResult,
       originalResume: {
@@ -219,23 +213,14 @@ exports.analyzeResumeInitial = async (req, res) => {
 };
 
 exports.optimizeResume = async (req, res) => {
-  console.log(
-    "⚠️ optimizeResume endpoint called - This is now handled in analyzeResumeInitial",
-  );
-
   return res.status(400).json({
     success: false,
-    message:
-      "This endpoint is deprecated. Resume optimization now happens during initial analysis.",
+    message: "This endpoint is deprecated. Resume optimization now happens during initial analysis.",
     redirectTo: "/analyze-initial",
   });
 };
 
 exports.updateOptimizedResume = async (req, res) => {
-  console.log(
-    "⚠️ updateOptimizedResume endpoint called - This endpoint is deprecated",
-  );
-
   return res.status(400).json({
     success: false,
     message: "This endpoint is deprecated.",
